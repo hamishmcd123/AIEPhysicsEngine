@@ -8,6 +8,7 @@
 #include <algorithm>
 #include "PhysicsObject.h"
 #include "Circle.h"
+#include "Plane.h"
 
 PhysicsScene::PhysicsScene()
 {
@@ -34,15 +35,21 @@ void PhysicsScene::Initialise()
 	PhysicsObject::lines = lines;
 	m_gravity = { 0, -9.81f };
 	AddActor(new Circle(Vec2{0.0f, 5.0f}, Vec2{0.0f, 0.0f}, 1.0f, 1.0f, Colour::RED));
+	AddActor(new Plane({ 1, 1 }, 0.5));
 }
 
 void PhysicsScene::Update(float delta)
 {
+
+	ImGui::Begin("Window");
+	ImGui::End();
+
 	//Everything that your program does every frame should go here.
 	//This includes rendering done with the line renderer!
 	for (PhysicsObject* actor : m_actors) {
 		actor->FixedUpdate(m_gravity, delta);
 	}
+	
 	// TODO: Move this to rendering()? Only problem is that we would have to do temporal anti-aliasing.
 	for (PhysicsObject* actor : m_actors) {
 		actor->Draw();

@@ -175,6 +175,7 @@ void ApplicationHarness::Update(float delta)
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplSDL3_NewFrame();
 	ImGui::NewFrame();
+	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
 	if (!app->GetAppInfo().camera.disable)
 	{

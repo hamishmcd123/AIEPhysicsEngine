@@ -27,4 +27,9 @@ public:
 	void RemoveActor(PhysicsObject* actor);
 	void OnLeftClick() override;
 	void SetGravity(const Vec2 gravity) {}
+
+	typedef bool (*CollisionFunction)(PhysicsObject*, PhysicsObject*);
+	CollisionFunction CollisionFunctions[9];
+
+
 };

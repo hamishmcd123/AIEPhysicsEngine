@@ -8,6 +8,11 @@ enum class ShapeType {
 	BOX
 };
 
+struct CollisionInfo {
+
+
+
+};
 
 class PhysicsObject {
 protected:

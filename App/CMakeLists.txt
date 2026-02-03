@@ -7,7 +7,7 @@ target_sources(App PUBLIC
     "EntryPoint.cpp"
     "PhysicsScene.cpp"
     "RigidBody.cpp"
-	"Circle.cpp" "PhysicsObject.cpp")
+	"Circle.cpp" "PhysicsObject.cpp" "Plane.cpp")
 
 target_include_directories(App PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
