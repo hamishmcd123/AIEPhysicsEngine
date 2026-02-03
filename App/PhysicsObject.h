@@ -2,25 +2,30 @@
 #include "math.h"
 #include "LineRenderer.h"
 
-enum class ShapeType {
-	PLANE,
-	CIRCLE,
-	BOX
-};
-
-struct CollisionInfo {
-
-
-
+enum class ShapeType : int {
+	PLANE = 0,
+	CIRCLE = 1,
+	BOX = 2
 };
 
 class PhysicsObject {
 protected:
 	PhysicsObject(ShapeType shapeType) : m_ShapeID(shapeType) {}
 public:
+
+    // NOTE: Marked as virtual since we are deleting through this base type.
+    virtual ~PhysicsObject() = default;
+
 	virtual void FixedUpdate(Vec2 gravity, float timeStep) = 0;
 	virtual void ResetPosition() = 0;
 	virtual void Draw() = 0;
 	ShapeType m_ShapeID;
+
+    // For collision resolution
+    virtual float GetInverseMass() = 0;
+    virtual Vec2 GetVelocity() = 0;
+    virtual void SetVelocity(const Vec2 velocity) = 0;
+    virtual void SetPosition(const Vec2 position) = 0;
+    virtual Vec2 GetPosition() = 0;
 	static LineRenderer* lines;
 };

@@ -10,12 +10,15 @@ public:
 	void ApplyForce(Vec2 force);
 	void ApplyForceToActor(RigidBody* otherActor, Vec2 force);
 	void ResetPosition() override;
-	Vec2 GetPosition() { return m_position; };
 	float GetOrientation() { return m_orientation; }
-	Vec2 GetVelocity() { return m_velocity; }
+	Vec2 GetVelocity() override { return m_velocity; }
+    void SetVelocity(const Vec2 velocity) override {m_velocity = velocity;}
 	float GetMass() { return m_mass; }
+    float GetInverseMass() override {return m_invMass;}
 	Vec2 ResolveForces();
 	void ApplyImpulse(Vec2 impulse);
+    Vec2 GetPosition() override {return m_position;}
+    void SetPosition(const Vec2 position) override {m_position = position; }
 protected:
 	Vec2 m_position;
 	Vec2 m_velocity;

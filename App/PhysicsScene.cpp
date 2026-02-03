@@ -1,14 +1,18 @@
 #include "PhysicsScene.h"
 #include "Colour.h"
 #include "LineRenderer.h"
+#include "RigidBody.h"
+#include "Vec2.h"
 #include "imgui.h"
 #include <SDL3/SDL_timer.h>
-#include <cmath>
-#include <string>
 #include <algorithm>
 #include "PhysicsObject.h"
 #include "Circle.h"
 #include "Plane.h"
+#include "CollisionInfo.h"
+#include <filesystem>
+#include <iostream>
+#include <iterator>
 
 PhysicsScene::PhysicsScene()
 {
@@ -34,8 +38,13 @@ void PhysicsScene::Initialise()
 
 	PhysicsObject::lines = lines;
 	m_gravity = { 0, -9.81f };
-	AddActor(new Circle(Vec2{0.0f, 5.0f}, Vec2{0.0f, 0.0f}, 1.0f, 1.0f, Colour::RED));
-	AddActor(new Plane({ 1, 1 }, 0.5));
+
+    AddActor(new Plane({ 0, 1}, 0));
+    AddActor(new Plane({ 0.5, 0.5}, -5.0f));
+
+	AddActor(new Circle(Vec2{-3.0f, 2.0f}, Vec2{3.0f, 10.0f}, 10.0f, 0.5f, Colour::RED));
+	AddActor(new Circle(Vec2{3.0f, 2.0f}, Vec2{-3.0f, 10.0f}, 25.0f, 1.0f, Colour::RED));
+	
 }
 
 void PhysicsScene::Update(float delta)
@@ -49,6 +58,20 @@ void PhysicsScene::Update(float delta)
 	for (PhysicsObject* actor : m_actors) {
 		actor->FixedUpdate(m_gravity, delta);
 	}
+
+    for (int outer = 0; outer < m_actors.size(); outer++) {
+            PhysicsObject* A = m_actors[outer];
+            for (int inner = outer + 1; inner <m_actors.size(); inner++) {
+                PhysicsObject* B = m_actors[inner];
+
+                //index = (A->m_ShapeID * N) + B
+                int index = static_cast<int>(A->m_ShapeID) * 3 + static_cast<int>(B->m_ShapeID);
+                CollisionInfo info = CollisionFunctions[index](A, B);
+                if (info.isColliding) {
+					ResolveCollisions(A, B, info);
+                }
+        }
+    }
 	
 	// TODO: Move this to rendering()? Only problem is that we would have to do temporal anti-aliasing.
 	for (PhysicsObject* actor : m_actors) {
@@ -63,16 +86,104 @@ void PhysicsScene::AddActor(PhysicsObject* actor)
 
 void PhysicsScene::RemoveActor(PhysicsObject* actor)
 {
-	auto it = std::remove(m_actors.begin(), m_actors.end(), actor);
-	m_actors.erase(it, m_actors.end());
+    auto it = std::remove_if(m_actors.begin(), m_actors.end(), [actor](PhysicsObject* a){
+            if (a == actor) {
+                delete a;
+                return true;
+            }
+            return false;
+        });
+
+    m_actors.erase(it, m_actors.end());
 }
 
 void PhysicsScene::OnLeftClick()
 {
-		for (PhysicsObject* actor : m_actors) {
-			if (RigidBody* converted = dynamic_cast<RigidBody*>(actor)) {
-				converted->ApplyImpulse(Vec2{0, 5});
-			}
-		}
-
+    AddActor(new Circle(cursorPos, {0.0f, 0.0f}, 20.0f, 1.0f, Colour::BLUE));
 }
+
+
+// WE ARE DOING B->A FOR NORMALS
+
+CollisionInfo PhysicsScene::Sphere2Plane(PhysicsObject *A, PhysicsObject *B) {
+
+    // NOTE: For circle-plane collisions, the collision normal will be either -1 * planeNormal or the planeNormal. 
+        CollisionInfo info;
+        Circle* CircleA = static_cast<Circle*>(A);
+        Plane* PlaneB = static_cast<Plane*>(B);
+
+        if (abs(Dot(CircleA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance()) <= CircleA->GetRadius())  {
+            info.isColliding = true;
+
+            // NOTE: We flip the direction of the ternary expression to comply with B->A
+            float distanceToPlane = Dot(CircleA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance();
+            (distanceToPlane > 0) ? info.collisionNormal = PlaneB->GetNormal() : info.collisionNormal = -1.0f * PlaneB->GetNormal();
+            info.penetrationDepth = CircleA->GetRadius() - abs(distanceToPlane);
+        }
+    return info;
+
+   }
+
+CollisionInfo PhysicsScene::Plane2Sphere(PhysicsObject *A, PhysicsObject *B) {
+
+    // NOTE: For circle-plane collisions, the collision normal will be either -1 * planeNormal or the planeNormal. 
+            CollisionInfo info;
+            Plane* PlaneA = static_cast<Plane*>(A);
+            Circle* CircleB = static_cast<Circle*>(B);
+            
+            if (abs(Dot(CircleB->GetPosition(), PlaneA->GetNormal()) - PlaneA->GetDistance()) <= CircleB->GetRadius())  {
+                info.isColliding = true;
+
+                // Get normal direction
+                float distanceToPlane = PlaneA->GetDistance() - Dot(CircleB->GetPosition(), PlaneA->GetNormal());
+                (distanceToPlane > 0) ? info.collisionNormal = PlaneA->GetNormal() : info.collisionNormal = -1.0f * PlaneA->GetNormal();
+                info.penetrationDepth = CircleB->GetRadius() - abs(distanceToPlane);
+            }
+        
+        return info;
+}
+
+
+CollisionInfo PhysicsScene::Sphere2Sphere(PhysicsObject *A, PhysicsObject *B) {
+
+    CollisionInfo info;
+
+    Circle* CircleA = static_cast<Circle*>(A);
+    Circle* CircleB = static_cast<Circle*>(B);
+
+    // TODO: Clean this up
+    if ((CircleA->GetPosition() - CircleB->GetPosition()).GetMagnitudeSquared() < (CircleA->GetRadius() + CircleB->GetRadius()) * (CircleA->GetRadius() + CircleB->GetRadius())) {
+        info.isColliding = true;
+        info.collisionNormal = (CircleA->GetPosition() - CircleB->GetPosition()).Normalise();
+        info.penetrationDepth = (CircleA->GetRadius() + CircleB->GetRadius()) - (CircleA->GetPosition() - CircleB->GetPosition()).GetMagnitude();
+    }
+
+    return info;
+}
+
+CollisionInfo PhysicsScene::Plane2Plane(PhysicsObject *A, PhysicsObject *B) {
+    // don't do anything;
+    return CollisionInfo();
+}
+
+//NOTE: Only handles linear cases right now
+void PhysicsScene::ResolveCollisions(PhysicsObject* A, PhysicsObject* B, CollisionInfo& info) {
+    
+    float totalInverseMass = A->GetInverseMass() + B->GetInverseMass(); 
+    if (totalInverseMass > 0.0f) { Vec2 correction = (info.penetrationDepth / totalInverseMass) * info.collisionNormal;
+        A->SetPosition( A->GetPosition() + A->GetInverseMass() * correction );
+        B->SetPosition( B->GetPosition() - B->GetInverseMass() * correction );
+    }
+    
+    Vec2 relativeVelocity = A->GetVelocity() - B->GetVelocity();
+
+    if (Dot(relativeVelocity, info.collisionNormal) < 0) {
+        float impulseMagnitude = -1.7 * (Dot(relativeVelocity, info.collisionNormal)) / (A->GetInverseMass() + B->GetInverseMass());
+        Vec2 newVelocityA = A->GetVelocity() + A->GetInverseMass() * (impulseMagnitude * info.collisionNormal);
+        Vec2 newVelocityB = B->GetVelocity() - B->GetInverseMass() *  (impulseMagnitude * info.collisionNormal);
+        A->SetVelocity(newVelocityA);
+        B->SetVelocity(newVelocityB);
+    }
+  
+}
+
