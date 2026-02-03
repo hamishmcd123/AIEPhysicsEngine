@@ -4,11 +4,12 @@ add_executable(App)
 target_link_libraries(App PUBLIC Engine)
 
 target_sources(App PUBLIC
-    EntryPoint.cpp
-    Example.cpp
-    Example.h
-)
+    "EntryPoint.cpp"
+    "PhysicsScene.cpp"
+    "RigidBody.cpp"
+	"Circle.cpp" "PhysicsObject.cpp")
 
+target_include_directories(App PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_custom_command(TARGET App POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory

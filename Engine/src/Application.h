@@ -37,8 +37,7 @@ public:
 
 	float GetCameraHeight() const { return cameraHeight; }
 	Vec2 GetCameraPos() const { return cameraCentre; }
-
-
+	
 	//Used by application harness for optional default camera controls
 	void ScaleCameraHeight(float scale) { cameraHeight *= scale; }
 	void MoveCameraScaled(Vec2 movement) { cameraCentre += movement * cameraHeight; }
