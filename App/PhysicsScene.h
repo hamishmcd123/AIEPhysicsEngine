@@ -43,6 +43,6 @@ public:
     static CollisionInfo Plane2Plane(PhysicsObject* A, PhysicsObject* B);
    
     // NOTE: Only supports linear collisions for now.
-    void ResolveCollisions(PhysicsObject* A, PhysicsObject* B, CollisionInfo& info);
+    void ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const CollisionInfo& info);
 
 };

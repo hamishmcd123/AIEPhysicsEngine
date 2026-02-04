@@ -10,6 +10,7 @@ target_sources(App PUBLIC
 	"Circle.cpp"
     "PhysicsObject.cpp"
     "Plane.cpp"
+    "Box.cpp"
 )
 
 target_include_directories(App PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

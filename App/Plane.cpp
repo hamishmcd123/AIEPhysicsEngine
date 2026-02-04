@@ -27,7 +27,6 @@ void Plane::Draw()
 	
 	lines->DrawLineSegment(PlaneCenter, PlaneCenter + 25 * dir1);
 	lines->DrawLineSegment(PlaneCenter, PlaneCenter + 25 * dir2);
-	lines->DrawLineWithArrow(PlaneCenter, PlaneCenter + m_normal * 2);
 }
 
 void Plane::ResetPosition()

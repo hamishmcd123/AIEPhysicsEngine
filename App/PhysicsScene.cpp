@@ -1,6 +1,5 @@
 #include "PhysicsScene.h"
 #include "Colour.h"
-#include "LineRenderer.h"
 #include "RigidBody.h"
 #include "Vec2.h"
 #include "imgui.h"
@@ -9,11 +8,8 @@
 #include "PhysicsObject.h"
 #include "Circle.h"
 #include "Plane.h"
+#include "Box.h"
 #include "CollisionInfo.h"
-#include <filesystem>
-#include <iostream>
-#include <iterator>
-
 PhysicsScene::PhysicsScene()
 {
 	//Use the constructor to set up the application info, because the harness
@@ -39,12 +35,7 @@ void PhysicsScene::Initialise()
 	PhysicsObject::lines = lines;
 	m_gravity = { 0, -9.81f };
 
-    AddActor(new Plane({ 0, 1}, 0));
-    AddActor(new Plane({ 0.5, 0.5}, -5.0f));
-
-	AddActor(new Circle(Vec2{-3.0f, 2.0f}, Vec2{3.0f, 10.0f}, 10.0f, 0.5f, Colour::RED));
-	AddActor(new Circle(Vec2{3.0f, 2.0f}, Vec2{-3.0f, 10.0f}, 25.0f, 1.0f, Colour::RED));
-	
+    AddActor(new Plane({ 0.0f, 1.0f}, 0));
 }
 
 void PhysicsScene::Update(float delta)
@@ -99,7 +90,8 @@ void PhysicsScene::RemoveActor(PhysicsObject* actor)
 
 void PhysicsScene::OnLeftClick()
 {
-    AddActor(new Circle(cursorPos, {0.0f, 0.0f}, 20.0f, 1.0f, Colour::BLUE));
+    AddActor(new Circle(cursorPos, {0.0f, 0.0f}, 10.0f, 0.5f, Colour::BLUE));
+
 }
 
 
@@ -122,7 +114,7 @@ CollisionInfo PhysicsScene::Sphere2Plane(PhysicsObject *A, PhysicsObject *B) {
         }
     return info;
 
-   }
+}
 
 CollisionInfo PhysicsScene::Plane2Sphere(PhysicsObject *A, PhysicsObject *B) {
 
@@ -167,23 +159,22 @@ CollisionInfo PhysicsScene::Plane2Plane(PhysicsObject *A, PhysicsObject *B) {
 }
 
 //NOTE: Only handles linear cases right now
-void PhysicsScene::ResolveCollisions(PhysicsObject* A, PhysicsObject* B, CollisionInfo& info) {
-    
-    float totalInverseMass = A->GetInverseMass() + B->GetInverseMass(); 
-    if (totalInverseMass > 0.0f) { Vec2 correction = (info.penetrationDepth / totalInverseMass) * info.collisionNormal;
-        A->SetPosition( A->GetPosition() + A->GetInverseMass() * correction );
-        B->SetPosition( B->GetPosition() - B->GetInverseMass() * correction );
-    }
+void PhysicsScene::ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const CollisionInfo& info) {
     
     Vec2 relativeVelocity = A->GetVelocity() - B->GetVelocity();
-
     if (Dot(relativeVelocity, info.collisionNormal) < 0) {
-        float impulseMagnitude = -1.7 * (Dot(relativeVelocity, info.collisionNormal)) / (A->GetInverseMass() + B->GetInverseMass());
+        float impulseMagnitude = -1.5 * (Dot(relativeVelocity, info.collisionNormal)) / (A->GetInverseMass() + B->GetInverseMass());
         Vec2 newVelocityA = A->GetVelocity() + A->GetInverseMass() * (impulseMagnitude * info.collisionNormal);
         Vec2 newVelocityB = B->GetVelocity() - B->GetInverseMass() *  (impulseMagnitude * info.collisionNormal);
         A->SetVelocity(newVelocityA);
         B->SetVelocity(newVelocityB);
     }
-  
+
+    float totalInverseMass = A->GetInverseMass() + B->GetInverseMass(); 
+    if (totalInverseMass > 0.0f) { Vec2 correction = (info.penetrationDepth / totalInverseMass) * info.collisionNormal;
+        A->SetPosition( A->GetPosition() + A->GetInverseMass() * correction );
+        B->SetPosition( B->GetPosition() - B->GetInverseMass() * correction );
+    }
+
 }
 
