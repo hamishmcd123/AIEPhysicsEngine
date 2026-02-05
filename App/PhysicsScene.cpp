@@ -10,6 +10,7 @@
 #include "Plane.h"
 #include "Box.h"
 #include "CollisionInfo.h"
+#include "Polygon.h"
 PhysicsScene::PhysicsScene()
 {
 	//Use the constructor to set up the application info, because the harness
@@ -33,9 +34,9 @@ void PhysicsScene::Initialise()
 	//available at this point.
 
 	PhysicsObject::lines = lines;
-	m_gravity = { 0, -9.81f };
+	m_gravity = { 0, -0.0f };
+    AddActor(new Polygon({0.0f, 5.0f}, {0.0f, 0.0f}, 20.0f, 5, 1.0f, Colour::CYAN));
 
-    AddActor(new Plane({ 0.0f, 1.0f}, 0));
 }
 
 void PhysicsScene::Update(float delta)
@@ -163,7 +164,7 @@ void PhysicsScene::ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const C
     
     Vec2 relativeVelocity = A->GetVelocity() - B->GetVelocity();
     if (Dot(relativeVelocity, info.collisionNormal) < 0) {
-        float impulseMagnitude = -1.5 * (Dot(relativeVelocity, info.collisionNormal)) / (A->GetInverseMass() + B->GetInverseMass());
+        float impulseMagnitude = -1.8 * (Dot(relativeVelocity, info.collisionNormal)) / (A->GetInverseMass() + B->GetInverseMass());
         Vec2 newVelocityA = A->GetVelocity() + A->GetInverseMass() * (impulseMagnitude * info.collisionNormal);
         Vec2 newVelocityB = B->GetVelocity() - B->GetInverseMass() *  (impulseMagnitude * info.collisionNormal);
         A->SetVelocity(newVelocityA);

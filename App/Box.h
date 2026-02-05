@@ -12,6 +12,5 @@ private:
     float m_halfWidth;
     float m_halfHeight;
     float m_inverseMass;
-
     Colour m_colour;
 };

@@ -5,7 +5,8 @@
 enum class ShapeType : int {
 	PLANE = 0,
 	CIRCLE = 1,
-	BOX = 2
+	BOX = 2,
+    POLYGON = 3
 };
 
 class PhysicsObject {
