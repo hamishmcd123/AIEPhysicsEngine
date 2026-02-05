@@ -1,16 +1,15 @@
 #include "PhysicsScene.h"
 #include "Colour.h"
-#include "RigidBody.h"
 #include "Vec2.h"
 #include "imgui.h"
-#include <SDL3/SDL_timer.h>
 #include <algorithm>
+#include <unistd.h>
 #include "PhysicsObject.h"
 #include "Circle.h"
 #include "Plane.h"
 #include "Box.h"
 #include "CollisionInfo.h"
-#include "Polygon.h"
+
 PhysicsScene::PhysicsScene()
 {
 	//Use the constructor to set up the application info, because the harness
@@ -35,10 +34,9 @@ void PhysicsScene::Initialise()
 
 	PhysicsObject::lines = lines;
 	m_gravity = { 0, -9.81f };
-
-    AddActor(new Box({0.0f, 5.0f}, {0.0f, 0.0f}, 30.0f, 1.0f, 1.0f, Colour::RED));
-    AddActor(new Plane({1.0f, 1.0f}, -3.0f));
-
+    
+    AddActor(new Plane({0.0f, 1.0f}, -3.0f));
+    AddActor(new Box({0.0f, 1.0f}, {0.0f, 0.0f}, 1000.0f, 1.0f, 1.0f, Colour::RED));
 }
 
 void PhysicsScene::Update(float delta)
@@ -98,6 +96,13 @@ void PhysicsScene::OnLeftClick()
 }
 
 
+void PhysicsScene::OnRightClick() {
+
+    AddActor(new Box(cursorPos, {0.0f, 0.0f}, 20.0f, 0.5f, 0.5f, Colour::RED));
+
+}
+
+
 // WE ARE DOING B->A FOR NORMALS
 
 CollisionInfo PhysicsScene::Sphere2Plane(PhysicsObject *A, PhysicsObject *B) {
@@ -110,7 +115,6 @@ CollisionInfo PhysicsScene::Sphere2Plane(PhysicsObject *A, PhysicsObject *B) {
         if (abs(Dot(CircleA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance()) <= CircleA->GetRadius())  {
             info.isColliding = true;
 
-            // NOTE: We flip the direction of the ternary expression to comply with B->A
             float distanceToPlane = Dot(CircleA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance();
             (distanceToPlane > 0) ? info.collisionNormal = PlaneB->GetNormal() : info.collisionNormal = -1.0f * PlaneB->GetNormal();
             info.penetrationDepth = CircleA->GetRadius() - abs(distanceToPlane);
@@ -130,8 +134,8 @@ CollisionInfo PhysicsScene::Plane2Sphere(PhysicsObject *A, PhysicsObject *B) {
                 info.isColliding = true;
 
                 // Get normal direction
-                float distanceToPlane = PlaneA->GetDistance() - Dot(CircleB->GetPosition(), PlaneA->GetNormal());
-                (distanceToPlane > 0) ? info.collisionNormal = PlaneA->GetNormal() : info.collisionNormal = -1.0f * PlaneA->GetNormal();
+                float distanceToPlane = Dot(CircleB->GetPosition(), PlaneA->GetNormal()) - PlaneA->GetDistance();
+                (distanceToPlane > 0) ? info.collisionNormal = -1.0f * PlaneA->GetNormal() : info.collisionNormal = PlaneA->GetNormal();
                 info.penetrationDepth = CircleB->GetRadius() - abs(distanceToPlane);
             }
         
@@ -204,10 +208,102 @@ CollisionInfo PhysicsScene::Plane2Box(PhysicsObject *A, PhysicsObject *B) {
         return info;
     }
     return info;
-
-
-
 }
+
+CollisionInfo PhysicsScene::Box2Sphere(PhysicsObject *A, PhysicsObject *B) {
+    CollisionInfo info;
+    Box* BoxA = static_cast<Box*>(A);
+    Circle* CircleB = static_cast<Circle*>(B);
+
+    // If AABB
+    if (BoxA->GetOrientation() == 0) {
+
+        // Get position on box that is closet to circle.
+        Vec2 closest = {Clamp<float>(CircleB->GetPosition().x, BoxA->GetPosition().x - BoxA->GetHalfWidth(), BoxA->GetPosition().x + BoxA->GetHalfWidth()), 
+        Clamp<float>(CircleB->GetPosition().y, BoxA->GetPosition().y - BoxA->GetHalfHeight(), BoxA->GetPosition().y + BoxA->GetHalfHeight())};
+
+        float distance = (closest - CircleB->GetPosition()).GetMagnitude();
+        
+        if (distance <= CircleB->GetRadius()) {
+            info.isColliding = true;
+            info.penetrationDepth = CircleB->GetRadius() - distance;
+            info.collisionNormal = (closest - CircleB->GetPosition()).Normalise();
+        }
+        return info;
+    }
+    return info; 
+}
+
+CollisionInfo PhysicsScene::Sphere2Box(PhysicsObject* A, PhysicsObject *B) {
+
+    CollisionInfo info;
+    Box* BoxB = static_cast<Box*>(B);
+    Circle* CircleA = static_cast<Circle*>(A);
+
+    // If AABB
+    if (BoxB->GetOrientation() == 0) {
+
+        // Get position on box that is closet to circle.
+        Vec2 closest = {Clamp<float>(CircleA->GetPosition().x, BoxB->GetPosition().x - BoxB->GetHalfWidth(), BoxB->GetPosition().x + BoxB->GetHalfWidth()), 
+        Clamp<float>(CircleA->GetPosition().y, BoxB->GetPosition().y - BoxB->GetHalfHeight(), BoxB->GetPosition().y + BoxB->GetHalfHeight())};
+
+        float distance = (closest - CircleA->GetPosition()).GetMagnitude();
+        
+        if (distance <= CircleA->GetRadius()) {
+            info.isColliding = true;
+            info.penetrationDepth = CircleA->GetRadius() - distance;
+            info.collisionNormal = (CircleA->GetPosition() - closest).Normalise();
+        }
+        return info;
+    }
+    return info; 
+}
+
+CollisionInfo PhysicsScene::Box2Box(PhysicsObject *A, PhysicsObject *B) {
+
+    CollisionInfo info;
+
+    Box* BoxA = static_cast<Box*>(A);
+    Box* BoxB = static_cast<Box*>(B);
+
+    // If both AABB 
+    
+    if (BoxA->GetOrientation() == 0 && BoxB->GetOrientation() == 0) {
+    
+        float BoxAxmin = BoxA->GetPosition().x - BoxA->GetHalfWidth();
+        float BoxAxmax = BoxA->GetPosition().x + BoxA->GetHalfWidth();
+
+        float BoxAymin = BoxA->GetPosition().y - BoxA->GetHalfHeight();
+        float BoxAymax = BoxA->GetPosition().y + BoxA->GetHalfHeight();
+        
+        float BoxBxmin = BoxB->GetPosition().x - BoxB->GetHalfWidth();
+        float BoxBxmax = BoxB->GetPosition().x + BoxB->GetHalfWidth();
+
+        float BoxBymin = BoxB->GetPosition().y - BoxB->GetHalfHeight();
+        float BoxBymax = BoxB->GetPosition().y + BoxB->GetHalfHeight();
+    
+        float xoverlap = std::min(BoxAxmax, BoxBxmax) - std::max(BoxAxmin, BoxBxmin);
+        float yoverlap = std::min(BoxAymax, BoxBymax) - std::max(BoxAymin, BoxBymin);
+
+        if (xoverlap > 0 && yoverlap > 0) {
+            info.isColliding = true;
+
+            if (xoverlap < yoverlap) {
+                (BoxA->GetPosition().x - BoxB->GetPosition().x > 0) ? info.collisionNormal = Vec2{1.0f, 0.0f} : info.collisionNormal = Vec2{-1.0f, 0.0f} ;
+                info.penetrationDepth = xoverlap;
+            }
+            else {
+                (BoxA->GetPosition().y - BoxB->GetPosition().y > 0) ? info.collisionNormal = Vec2{0.0f, 1.0f} : info.collisionNormal = Vec2{0.0f, -1.0f} ;
+                info.penetrationDepth = yoverlap;
+            }
+            return info;
+        }
+
+        return info;
+    }
+    return info;
+}
+
 
 //NOTE: Only handles linear cases right now
 void PhysicsScene::ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const CollisionInfo& info) {
