@@ -34,8 +34,10 @@ void PhysicsScene::Initialise()
 	//available at this point.
 
 	PhysicsObject::lines = lines;
-	m_gravity = { 0, -0.0f };
-    AddActor(new Polygon({0.0f, 5.0f}, {0.0f, 0.0f}, 20.0f, 5, 1.0f, Colour::CYAN));
+	m_gravity = { 0, -9.81f };
+
+    AddActor(new Box({0.0f, 5.0f}, {0.0f, 0.0f}, 30.0f, 1.0f, 1.0f, Colour::RED));
+    AddActor(new Plane({1.0f, 1.0f}, -3.0f));
 
 }
 
@@ -157,6 +159,54 @@ CollisionInfo PhysicsScene::Sphere2Sphere(PhysicsObject *A, PhysicsObject *B) {
 CollisionInfo PhysicsScene::Plane2Plane(PhysicsObject *A, PhysicsObject *B) {
     // don't do anything;
     return CollisionInfo();
+}
+
+CollisionInfo PhysicsScene::Box2Plane(PhysicsObject *A, PhysicsObject *B) {
+    
+    CollisionInfo info;
+    Box* BoxA = static_cast<Box*>(A);
+    Plane* PlaneB = static_cast<Plane*>(B);
+
+    // If AABB
+    if (BoxA->GetOrientation() == 0) {
+        
+        float distance = abs(Dot(BoxA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance());
+        float r = BoxA->GetHalfWidth() * abs(PlaneB->GetNormal().x) + BoxA->GetHalfHeight() * abs(PlaneB->GetNormal().y);
+        
+        if (distance <= r) {
+            info.isColliding = true;
+            info.penetrationDepth = r - distance;
+            Dot(BoxA->GetPosition(), PlaneB->GetNormal()) > 0 ? info.collisionNormal = -1.0f * PlaneB->GetNormal() : info.collisionNormal = PlaneB->GetNormal();
+        }
+
+        return info;
+    }
+    return info;
+};
+
+CollisionInfo PhysicsScene::Plane2Box(PhysicsObject *A, PhysicsObject *B) {
+    CollisionInfo info;
+    Box* BoxB = static_cast<Box*>(B);
+    Plane* PlaneA = static_cast<Plane*>(A);
+
+    // If AABB
+    if (BoxB->GetOrientation() == 0) {
+        
+        float distance = abs(Dot(BoxB->GetPosition(), PlaneA->GetNormal()) - PlaneA->GetDistance());
+        float r = BoxB->GetHalfWidth() * abs(PlaneA->GetNormal().x) + BoxB->GetHalfHeight() * abs(PlaneA->GetNormal().y);
+        
+        if (distance <= r) {
+            info.isColliding = true;
+            info.penetrationDepth = r - distance;
+            Dot(BoxB->GetPosition(), PlaneA->GetNormal()) > 0 ? info.collisionNormal = PlaneA->GetNormal() : info.collisionNormal = -1.0f * PlaneA->GetNormal();
+        }
+
+        return info;
+    }
+    return info;
+
+
+
 }
 
 //NOTE: Only handles linear cases right now
