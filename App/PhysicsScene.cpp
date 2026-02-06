@@ -34,9 +34,10 @@ void PhysicsScene::Initialise()
 
 	PhysicsObject::lines = lines;
 	m_gravity = { 0, -9.81f };
-    
-    AddActor(new Plane({0.0f, 1.0f}, -3.0f));
-    AddActor(new Box({0.0f, 1.0f}, {0.0f, 0.0f}, 1000.0f, 1.0f, 1.0f, Colour::RED));
+
+    AddActor(new Circle(cursorPos, {0.0f, 2.0f}, 10.0f, 0.5f, Colour::BLUE));
+    AddActor(new Box({0.0f, 5.0f}, {0.0f, 0.0f}, 20.0f, 0.5f, 0.5f, Colour::RED));
+    AddActor(new Plane({0.0f, 1.0f}, 0.0f));
 }
 
 void PhysicsScene::Update(float delta)
@@ -171,21 +172,18 @@ CollisionInfo PhysicsScene::Box2Plane(PhysicsObject *A, PhysicsObject *B) {
     Box* BoxA = static_cast<Box*>(A);
     Plane* PlaneB = static_cast<Plane*>(B);
 
-    // If AABB
-    if (BoxA->GetOrientation() == 0) {
+        BoxA->UpdateLocalAxes();
+
+        float distance = Dot(BoxA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance();
+        float r = BoxA->GetHalfWidth() * abs(Dot(BoxA->GetLocalXAxis(), PlaneB->GetNormal())) + BoxA->GetHalfHeight() * abs(Dot(BoxA->GetLocalYAxis(), PlaneB->GetNormal()));
         
-        float distance = abs(Dot(BoxA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance());
-        float r = BoxA->GetHalfWidth() * abs(PlaneB->GetNormal().x) + BoxA->GetHalfHeight() * abs(PlaneB->GetNormal().y);
-        
-        if (distance <= r) {
+        if (abs(distance) <= r) {
             info.isColliding = true;
-            info.penetrationDepth = r - distance;
-            Dot(BoxA->GetPosition(), PlaneB->GetNormal()) > 0 ? info.collisionNormal = -1.0f * PlaneB->GetNormal() : info.collisionNormal = PlaneB->GetNormal();
+            info.penetrationDepth = r - abs(distance);
+            info.collisionNormal = distance > 0 ? PlaneB->GetNormal() : -1.0f * PlaneB->GetNormal();
         }
 
         return info;
-    }
-    return info;
 };
 
 CollisionInfo PhysicsScene::Plane2Box(PhysicsObject *A, PhysicsObject *B) {
@@ -193,20 +191,14 @@ CollisionInfo PhysicsScene::Plane2Box(PhysicsObject *A, PhysicsObject *B) {
     Box* BoxB = static_cast<Box*>(B);
     Plane* PlaneA = static_cast<Plane*>(A);
 
-    // If AABB
-    if (BoxB->GetOrientation() == 0) {
+        float distance = Dot(BoxB->GetPosition(), PlaneA->GetNormal()) - PlaneA->GetDistance();
+        float r = BoxB->GetHalfWidth() * abs(Dot(BoxB->GetLocalXAxis(), PlaneA->GetNormal())) + BoxB->GetHalfHeight() * abs(Dot(BoxB->GetLocalYAxis(), PlaneA->GetNormal()));
         
-        float distance = abs(Dot(BoxB->GetPosition(), PlaneA->GetNormal()) - PlaneA->GetDistance());
-        float r = BoxB->GetHalfWidth() * abs(PlaneA->GetNormal().x) + BoxB->GetHalfHeight() * abs(PlaneA->GetNormal().y);
-        
-        if (distance <= r) {
+        if (abs(distance )<= r) {
             info.isColliding = true;
-            info.penetrationDepth = r - distance;
-            Dot(BoxB->GetPosition(), PlaneA->GetNormal()) > 0 ? info.collisionNormal = PlaneA->GetNormal() : info.collisionNormal = -1.0f * PlaneA->GetNormal();
+            info.penetrationDepth = r - abs(distance);
+            info.collisionNormal = distance > 0 ? -1.0f * PlaneA->GetNormal() : PlaneA->GetNormal();
         }
-
-        return info;
-    }
     return info;
 }
 
@@ -262,45 +254,37 @@ CollisionInfo PhysicsScene::Sphere2Box(PhysicsObject* A, PhysicsObject *B) {
 CollisionInfo PhysicsScene::Box2Box(PhysicsObject *A, PhysicsObject *B) {
 
     CollisionInfo info;
-
     Box* BoxA = static_cast<Box*>(A);
     Box* BoxB = static_cast<Box*>(B);
 
-    // If both AABB 
-    
-    if (BoxA->GetOrientation() == 0 && BoxB->GetOrientation() == 0) {
-    
-        float BoxAxmin = BoxA->GetPosition().x - BoxA->GetHalfWidth();
-        float BoxAxmax = BoxA->GetPosition().x + BoxA->GetHalfWidth();
+   // Update local axes
+    BoxA->UpdateLocalAxes();
+    BoxB->UpdateLocalAxes();
 
-        float BoxAymin = BoxA->GetPosition().y - BoxA->GetHalfHeight();
-        float BoxAymax = BoxA->GetPosition().y + BoxA->GetHalfHeight();
-        
-        float BoxBxmin = BoxB->GetPosition().x - BoxB->GetHalfWidth();
-        float BoxBxmax = BoxB->GetPosition().x + BoxB->GetHalfWidth();
+   // SAT
+    Vec2 axes[4] = {BoxA->GetLocalXAxis(), BoxA->GetLocalYAxis(), BoxB->GetLocalXAxis(), BoxB->GetLocalYAxis()};
+    Vec2 bestAxis;
+    float minOverlap = FLT_MAX; 
 
-        float BoxBymin = BoxB->GetPosition().y - BoxB->GetHalfHeight();
-        float BoxBymax = BoxB->GetPosition().y + BoxB->GetHalfHeight();
-    
-        float xoverlap = std::min(BoxAxmax, BoxBxmax) - std::max(BoxAxmin, BoxBxmin);
-        float yoverlap = std::min(BoxAymax, BoxBymax) - std::max(BoxAymin, BoxBymin);
+    for (Vec2& axis : axes) {
 
-        if (xoverlap > 0 && yoverlap > 0) {
-            info.isColliding = true;
+        float dist = Dot(BoxA->GetPosition() - BoxB->GetPosition(), axis);
+        float rA = abs(Dot(BoxA->GetLocalXAxis() * BoxA->GetHalfWidth(), axis)) + abs(Dot(BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(), axis));
+        float rB = abs(Dot(BoxB->GetLocalXAxis() * BoxB->GetHalfWidth(), axis)) + abs(Dot(BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(), axis));
 
-            if (xoverlap < yoverlap) {
-                (BoxA->GetPosition().x - BoxB->GetPosition().x > 0) ? info.collisionNormal = Vec2{1.0f, 0.0f} : info.collisionNormal = Vec2{-1.0f, 0.0f} ;
-                info.penetrationDepth = xoverlap;
-            }
-            else {
-                (BoxA->GetPosition().y - BoxB->GetPosition().y > 0) ? info.collisionNormal = Vec2{0.0f, 1.0f} : info.collisionNormal = Vec2{0.0f, -1.0f} ;
-                info.penetrationDepth = yoverlap;
-            }
-            return info;
+        float overlap = (rA + rB) - abs(dist);
+
+        // Separating axis found
+        if (overlap <= 0) return info;
+
+        if (overlap < minOverlap) {
+            minOverlap = overlap;
+            bestAxis = (dist > 0) ? axis  : -1.0f * axis;
         }
-
-        return info;
     }
+    info.isColliding = true;
+    info.penetrationDepth = minOverlap;
+    info.collisionNormal = bestAxis;
     return info;
 }
 
