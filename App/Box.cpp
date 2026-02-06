@@ -4,12 +4,11 @@
 #include "RigidBody.h"
 #include "imgui.h"
 
-Box::Box(Vec2 pos, Vec2 velocity, float mass, float halfWidth, float halfHeight, Colour colour) : RigidBody(ShapeType::BOX, pos, velocity, 0, mass), m_halfHeight(halfHeight), m_halfWidth(halfWidth), m_colour(colour)  {
+Box::Box(Vec2 pos, Vec2 velocity, float mass, float halfWidth, float halfHeight, Colour colour) : RigidBody(ShapeType::BOX, pos, velocity, 0.0f, mass), m_halfHeight(halfHeight), m_halfWidth(halfWidth), m_colour(colour)  {
     m_moment = 1.0f / 12.0f * m_mass * (2 * halfWidth) + (2 * halfHeight);
     m_invMoment = 1 / m_moment;
     m_localXAxis = Vec2{1.0f, 0.0}.RotateBy(m_orientation);    
     m_localYAxis = Vec2{0.0f, 1.0f}.RotateBy(m_orientation);    
-    m_orientation = 0;
 }
 
 void Box::UpdateLocalAxes() {

@@ -35,8 +35,7 @@ void PhysicsScene::Initialise()
 	PhysicsObject::lines = lines;
 	m_gravity = { 0, -9.81f };
 
-    AddActor(new Circle(cursorPos, {0.0f, 2.0f}, 10.0f, 0.5f, Colour::BLUE));
-    AddActor(new Box({0.0f, 5.0f}, {0.0f, 0.0f}, 20.0f, 0.5f, 0.5f, Colour::RED));
+    AddActor(new Box({0.0f, 10.0f}, {0.0f, 0.0f}, 20.0f, 0.5f, 0.5f, Colour::RED));
     AddActor(new Plane({0.0f, 1.0f}, 0.0f));
 }
 
@@ -65,6 +64,13 @@ void PhysicsScene::Update(float delta)
                 }
         }
     }
+
+    for (auto actor : m_actors) {
+                if (actor->m_ShapeID == ShapeType::BOX) {
+                    dynamic_cast<Box*>(actor)->m_orientation += 0.05f;
+                }
+        }
+
 	
 	// TODO: Move this to rendering()? Only problem is that we would have to do temporal anti-aliasing.
 	for (PhysicsObject* actor : m_actors) {
@@ -98,10 +104,8 @@ void PhysicsScene::OnLeftClick()
 
 
 void PhysicsScene::OnRightClick() {
-
     AddActor(new Box(cursorPos, {0.0f, 0.0f}, 20.0f, 0.5f, 0.5f, Colour::RED));
-
-}
+    }
 
 
 // WE ARE DOING B->A FOR NORMALS
@@ -206,24 +210,31 @@ CollisionInfo PhysicsScene::Box2Sphere(PhysicsObject *A, PhysicsObject *B) {
     CollisionInfo info;
     Box* BoxA = static_cast<Box*>(A);
     Circle* CircleB = static_cast<Circle*>(B);
+    
+    BoxA->UpdateLocalAxes();
 
-    // If AABB
-    if (BoxA->GetOrientation() == 0) {
+    //NOTE: Transform the circle's position so that its in the OBB's local axes, where the OBB is centered at 0,0
+    Vec2 RelativePos = CircleB->GetPosition() - BoxA->GetPosition();
 
-        // Get position on box that is closet to circle.
-        Vec2 closest = {Clamp<float>(CircleB->GetPosition().x, BoxA->GetPosition().x - BoxA->GetHalfWidth(), BoxA->GetPosition().x + BoxA->GetHalfWidth()), 
-        Clamp<float>(CircleB->GetPosition().y, BoxA->GetPosition().y - BoxA->GetHalfHeight(), BoxA->GetPosition().y + BoxA->GetHalfHeight())};
+    Vec2 CirclePos;
 
-        float distance = (closest - CircleB->GetPosition()).GetMagnitude();
-        
-        if (distance <= CircleB->GetRadius()) {
-            info.isColliding = true;
-            info.penetrationDepth = CircleB->GetRadius() - distance;
-            info.collisionNormal = (closest - CircleB->GetPosition()).Normalise();
-        }
-        return info;
+    CirclePos.x = Dot(RelativePos, BoxA->GetLocalXAxis());
+    CirclePos.y = Dot(RelativePos, BoxA->GetLocalYAxis());
+
+    // Get position on box that is closet to circle.
+    Vec2 closest = {Clamp<float>(CirclePos.x, -BoxA->GetHalfWidth(),BoxA->GetHalfWidth()), 
+    Clamp<float>(CirclePos.y,-BoxA->GetHalfHeight(),BoxA->GetHalfHeight())};
+
+    float distance = (closest - CirclePos).GetMagnitude();
+    
+    if (distance <= CircleB->GetRadius()) {
+        info.isColliding = true;
+        info.penetrationDepth = CircleB->GetRadius() - distance;
+        Vec2 collisionNormalLocal = (closest - CirclePos).Normalise();
+        info.collisionNormal = (BoxA->GetLocalXAxis() * collisionNormalLocal.x) + (BoxA->GetLocalYAxis() * collisionNormalLocal.y);
+
     }
-    return info; 
+    return info;
 }
 
 CollisionInfo PhysicsScene::Sphere2Box(PhysicsObject* A, PhysicsObject *B) {
@@ -232,23 +243,27 @@ CollisionInfo PhysicsScene::Sphere2Box(PhysicsObject* A, PhysicsObject *B) {
     Box* BoxB = static_cast<Box*>(B);
     Circle* CircleA = static_cast<Circle*>(A);
 
-    // If AABB
-    if (BoxB->GetOrientation() == 0) {
+    BoxB->UpdateLocalAxes();
+    Vec2 RelativePos = CircleA->GetPosition() - BoxB->GetPosition();
 
-        // Get position on box that is closet to circle.
-        Vec2 closest = {Clamp<float>(CircleA->GetPosition().x, BoxB->GetPosition().x - BoxB->GetHalfWidth(), BoxB->GetPosition().x + BoxB->GetHalfWidth()), 
-        Clamp<float>(CircleA->GetPosition().y, BoxB->GetPosition().y - BoxB->GetHalfHeight(), BoxB->GetPosition().y + BoxB->GetHalfHeight())};
+    Vec2 CirclePos;
 
-        float distance = (closest - CircleA->GetPosition()).GetMagnitude();
-        
-        if (distance <= CircleA->GetRadius()) {
-            info.isColliding = true;
-            info.penetrationDepth = CircleA->GetRadius() - distance;
-            info.collisionNormal = (CircleA->GetPosition() - closest).Normalise();
-        }
-        return info;
+    CirclePos.x = Dot(RelativePos, BoxB->GetLocalXAxis());
+    CirclePos.y = Dot(RelativePos, BoxB->GetLocalYAxis());
+
+    // Get position on box that is closet to circle.
+    Vec2 closest = {Clamp<float>(CirclePos.x, -BoxB->GetHalfWidth(),BoxB->GetHalfWidth()), 
+    Clamp<float>(CirclePos.y,-BoxB->GetHalfHeight(),BoxB->GetHalfHeight())};
+
+    float distance = (closest - CirclePos).GetMagnitude();
+    
+    if (distance <= CircleA->GetRadius()) {
+        info.isColliding = true;
+        info.penetrationDepth = CircleA->GetRadius() - distance;
+        Vec2 collisionNormalLocal = (CirclePos - closest).Normalise();
+        info.collisionNormal = (BoxB->GetLocalXAxis() * collisionNormalLocal.x) + (BoxB->GetLocalYAxis() * collisionNormalLocal.y);
     }
-    return info; 
+        return info;
 }
 
 CollisionInfo PhysicsScene::Box2Box(PhysicsObject *A, PhysicsObject *B) {
@@ -291,7 +306,6 @@ CollisionInfo PhysicsScene::Box2Box(PhysicsObject *A, PhysicsObject *B) {
 
 //NOTE: Only handles linear cases right now
 void PhysicsScene::ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const CollisionInfo& info) {
-    
     Vec2 relativeVelocity = A->GetVelocity() - B->GetVelocity();
     if (Dot(relativeVelocity, info.collisionNormal) < 0) {
         float impulseMagnitude = -1.8 * (Dot(relativeVelocity, info.collisionNormal)) / (A->GetInverseMass() + B->GetInverseMass());
