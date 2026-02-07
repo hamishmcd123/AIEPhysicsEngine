@@ -48,6 +48,7 @@ public:
     static CollisionInfo Box2Box(PhysicsObject* A, PhysicsObject* B);
 
     void DisplayActor(PhysicsObject* Actor);
+    void SetUpImGUItheme();
    
     // NOTE: Only supports linear collisions for now.
     void ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const CollisionInfo& info);
