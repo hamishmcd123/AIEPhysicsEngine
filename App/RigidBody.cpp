@@ -1,8 +1,9 @@
 #include "RigidBody.h"
+#include "Colour.h"
 #include "Vec2.h"
 
 
-RigidBody::RigidBody(ShapeType shapeID, Vec2 position, Vec2 velocity, float orientation, float mass) : PhysicsObject(shapeID), m_position(position), m_velocity(velocity), m_orientation(orientation), m_mass(mass)
+RigidBody::RigidBody(ShapeType shapeID, Vec2 position, Vec2 velocity, float orientation, float mass, Colour colour) : PhysicsObject(shapeID), m_position(position), m_velocity(velocity), m_orientation(orientation), m_mass(mass), m_colour(colour)
 {
 	m_invMass = 1.0f / mass;
 }

@@ -41,6 +41,7 @@ set(IMGUI_SOURCES
     imgui/imgui_tables.cpp
     imgui/imgui_impl_sdl3.cpp
     imgui/imgui_impl_opengl3.cpp
+    imgui/imgui_demo.cpp
 )
 
 add_library(imgui STATIC)

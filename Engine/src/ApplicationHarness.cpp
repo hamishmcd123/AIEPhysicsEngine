@@ -264,7 +264,7 @@ void ApplicationHarness::OnMouseRelease(int mouseButton)
 
 void ApplicationHarness::OnMouseScroll(bool positive)
 {
-	if (!app->GetAppInfo().camera.disable)
+	if (!app->GetAppInfo().camera.disable && ImGui::GetIO().WantCaptureMouse == 0)
 	{
 		float zoom = app->GetAppInfo().camera.zoomFactor;
 		app->ScaleCameraHeight(positive ? 1.0f / zoom : zoom);

@@ -1,10 +1,7 @@
 #pragma once
 
 #include "Application.h"
-#include "Colour.h"
-#include "Maths.h"
 #include "PhysicsObject.h"
-#include "TextStream.h"
 #include <vector>
 
 class PhysicsObject;
@@ -49,6 +46,8 @@ public:
     static CollisionInfo Box2Plane(PhysicsObject* A, PhysicsObject* B);
     static CollisionInfo Box2Sphere(PhysicsObject* A, PhysicsObject* B);
     static CollisionInfo Box2Box(PhysicsObject* A, PhysicsObject* B);
+
+    void DisplayActor(PhysicsObject* Actor);
    
     // NOTE: Only supports linear collisions for now.
     void ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const CollisionInfo& info);

@@ -2,9 +2,8 @@
 #include "Colour.h"
 #include "PhysicsObject.h"
 #include <cmath>
-#include <iostream>
 
-Polygon::Polygon(Vec2 pos, Vec2 velocity, float mass, int sides, float sidelength, Colour colour) : RigidBody(ShapeType::POLYGON, pos, velocity, 0, mass), m_sides(sides), m_colour(colour), m_sideLength(sidelength) {
+Polygon::Polygon(Vec2 pos, Vec2 velocity, float mass, int sides, float sidelength, Colour colour) : RigidBody(ShapeType::POLYGON, pos, velocity, 0, mass, colour), m_sides(sides), m_sideLength(sidelength) {
     m_inverseMass = 1 / m_mass;
     m_localVertices.reserve(m_sides);
 

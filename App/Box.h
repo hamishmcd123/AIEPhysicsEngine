@@ -17,5 +17,4 @@ private:
     float m_halfHeight;
     Vec2 m_localXAxis;
     Vec2 m_localYAxis;
-    Colour m_colour;
 };

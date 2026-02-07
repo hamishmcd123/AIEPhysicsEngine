@@ -13,7 +13,6 @@ public:
 private:
     int m_sides;
     float m_inverseMass;
-    Colour m_colour;
     float m_sideLength;
     std::vector<Vec2> m_localVertices;
 };

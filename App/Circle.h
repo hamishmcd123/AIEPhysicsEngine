@@ -10,5 +10,4 @@ public:
 	
 protected:
 	float m_radius;
-	Colour m_colour;
 };

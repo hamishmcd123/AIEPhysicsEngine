@@ -1,5 +1,6 @@
 #include "PhysicsScene.h"
 #include "Colour.h"
+#include "RigidBody.h"
 #include "Vec2.h"
 #include "imgui.h"
 #include <algorithm>
@@ -44,7 +45,14 @@ void PhysicsScene::Update(float delta)
 {
 
 	ImGui::Begin("Window");
-	ImGui::End();
+    if (ImGui::TreeNode("Scene")) {
+            for (auto actor : m_actors) {
+                DisplayActor(actor);
+            }
+            ImGui::TreePop();
+    }
+    ImGui::ShowDemoWindow();
+    ImGui::End();
 
 	//Everything that your program does every frame should go here.
 	//This includes rendering done with the line renderer!
@@ -68,7 +76,7 @@ void PhysicsScene::Update(float delta)
 
     for (auto actor : m_actors) {
                 if (actor->m_ShapeID == ShapeType::BOX) {
-                    dynamic_cast<Box*>(actor)->m_orientation += 0.05f;
+                    dynamic_cast<Box*>(actor)->ApplyForceAtPoint({1.0f, -1.0f}, {0.2f, 0.0f});
                 }
         }
 
@@ -332,3 +340,71 @@ void PhysicsScene::ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const C
 
 }
 
+void PhysicsScene::DisplayActor(PhysicsObject* Actor) {
+    static RigidBody* SelectedActor = nullptr;
+    static Colour SelectedActorPrevColour; 
+    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow;
+
+    if (RigidBody* CastedActor = dynamic_cast<RigidBody*>(Actor)) {
+
+        if (SelectedActor == CastedActor) {
+            flags |= ImGuiTreeNodeFlags_Selected;
+        }
+
+        ImGui::PushID(Actor);
+        bool isOpen = ImGui::TreeNodeEx("PhysicsActor", flags);
+
+        if (ImGui::IsItemClicked()) {
+            // In case the last actor was deleted.
+            if (SelectedActor) {
+                SelectedActor->SetColour(SelectedActorPrevColour);
+            }
+            SelectedActor = CastedActor;
+            SelectedActorPrevColour = CastedActor->GetColour();
+            SelectedActor->SetColour(Colour::GREEN);
+        }
+
+        if (isOpen) {
+            if(ImGui::BeginTable("Properties", 2,ImGuiTableFlags_SizingStretchProp)) {
+
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn(); ImGui::Text("Shape Type");
+
+                    ImGui::TableNextColumn();
+                    switch(CastedActor->m_ShapeID) {
+                        case ShapeType::BOX:
+                            ImGui::Text("Box");
+                            break;
+                        case ShapeType::CIRCLE:
+                            ImGui::Text("Circle");
+                            break;
+                        default:
+                            ImGui::Text("Unknown");
+                    }
+                    
+                        ImGui::TableNextRow();
+                        ImGui::TableNextColumn(); ImGui::Text("Position");  
+                        ImGui::TableNextColumn(); ImGui::Text("(%.2f, %.2f)", CastedActor->GetPosition().x, CastedActor->GetPosition().y);
+
+                        ImGui::TableNextRow();
+                        ImGui::TableNextColumn(); ImGui::Text("Orientation");
+                        ImGui::TableNextColumn(); ImGui::Text("%.2f", CastedActor->GetOrientation());
+                        
+                        ImGui::TableNextRow();
+                        ImGui::TableNextColumn(); ImGui::Text("Mass");
+                        ImGui::TableNextColumn(); ImGui::Text("%.2f", CastedActor->GetMass());
+
+                        ImGui::TableNextRow();
+                        ImGui::TableNextColumn(); ImGui::Text("Velocity");
+                        ImGui::TableNextColumn(); ImGui::Text("(%.2f, %.2f)", CastedActor->GetVelocity().x, CastedActor->GetVelocity().y);
+                    }
+
+                    ImGui::EndTable();
+                    if (ImGui::Button("Delete Actor##")) {
+                        RemoveActor(Actor);
+                    }
+            ImGui::TreePop();
+        }
+            ImGui::PopID();
+    }
+}

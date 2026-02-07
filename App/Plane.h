@@ -1,6 +1,5 @@
 #pragma once 
 #include "PhysicsObject.h"
-#include "Maths.h"
 
 
 class Plane : public PhysicsObject {
