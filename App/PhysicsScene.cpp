@@ -52,35 +52,43 @@ void PhysicsScene::Update(float delta)
             }
             ImGui::TreePop();
     }
-    ImGui::ShowDemoWindow();
+    ImGui::End();
+
+    ImGui::Begin("Debug Options");
+    ImGui::Checkbox("Show collision contact points", &m_debugShowContactPoints); 
+        if (ImGui::Button("Simulate!")) {
+            m_isPhysicsSimulating ^= 1;
+        }
     ImGui::End();
 
 	//Everything that your program does every frame should go here.
 	//This includes rendering done with the line renderer!
-	for (PhysicsObject* actor : m_actors) {
-		actor->FixedUpdate(m_gravity, delta);
-	}
-
-    for (int outer = 0; outer < m_actors.size(); outer++) {
-            PhysicsObject* A = m_actors[outer];
-            for (int inner = outer + 1; inner <m_actors.size(); inner++) {
-                PhysicsObject* B = m_actors[inner];
-
-                //index = (A->m_ShapeID * N) + B
-                int index = static_cast<int>(A->m_ShapeID) * 3 + static_cast<int>(B->m_ShapeID);
-                CollisionInfo info = CollisionFunctions[index](A, B);
-                if (info.isColliding) {
-					ResolveCollisions(A, B, info);
-                }
+    
+    if (m_isPhysicsSimulating) {
+        for (PhysicsObject* actor : m_actors) {
+            actor->FixedUpdate(m_gravity, delta);
         }
+
+        for (int outer = 0; outer < m_actors.size(); outer++) {
+                PhysicsObject* A = m_actors[outer];
+                for (int inner = outer + 1; inner <m_actors.size(); inner++) {
+                    PhysicsObject* B = m_actors[inner];
+
+                    //index = (A->m_ShapeID * N) + B
+                    int index = static_cast<int>(A->m_ShapeID) * 3 + static_cast<int>(B->m_ShapeID);
+                    CollisionInfo info = CollisionFunctions[index](A, B);
+                    if (info.isColliding) {
+                        ResolveCollisions(A, B, info);
+                    }
+            }
+        }
+
+        for (auto actor : m_actors) {
+                    if (actor->m_ShapeID == ShapeType::BOX) {
+                        dynamic_cast<Box*>(actor)->ApplyForceAtPoint({1.0f, -1.0f}, {0.2f, 0.0f});
+                    }
+            }
     }
-
-    for (auto actor : m_actors) {
-                if (actor->m_ShapeID == ShapeType::BOX) {
-                    dynamic_cast<Box*>(actor)->ApplyForceAtPoint({1.0f, -1.0f}, {0.2f, 0.0f});
-                }
-        }
-
 	
 	// TODO: Move this to rendering()? Only problem is that we would have to do temporal anti-aliasing.
 	for (PhysicsObject* actor : m_actors) {
@@ -325,7 +333,7 @@ void PhysicsScene::ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const C
     Vec2 relativeVelocity = A->GetVelocity() - B->GetVelocity();
 
     if (Dot(relativeVelocity, info.collisionNormal) < 0) {
-        lines->DrawCircle(info.collisionPoint, 0.05f, Colour::RED);
+        if (m_debugShowContactPoints) lines->DrawCircle(info.collisionPoint, 0.05f, Colour::RED);
         float impulseMagnitude = -1.8 * (Dot(relativeVelocity, info.collisionNormal)) / (A->GetInverseMass() + B->GetInverseMass());
         Vec2 newVelocityA = A->GetVelocity() + A->GetInverseMass() * (impulseMagnitude * info.collisionNormal);
         Vec2 newVelocityB = B->GetVelocity() - B->GetInverseMass() *  (impulseMagnitude * info.collisionNormal);
@@ -360,6 +368,7 @@ void PhysicsScene::DisplayActor(PhysicsObject* Actor) {
             if (SelectedActor) {
                 SelectedActor->SetColour(SelectedActorPrevColour);
             }
+
             SelectedActor = CastedActor;
             SelectedActorPrevColour = CastedActor->GetColour();
             SelectedActor->SetColour(Colour::GREEN);
@@ -402,6 +411,11 @@ void PhysicsScene::DisplayActor(PhysicsObject* Actor) {
 
                     ImGui::EndTable();
                     if (ImGui::Button("Delete Actor##")) {
+
+                        // Making sure selected actor is not a dangling pointer.
+                        if (SelectedActor == Actor) {
+                            SelectedActor = nullptr;
+                        }
                         RemoveActor(Actor);
                     }
             ImGui::TreePop();

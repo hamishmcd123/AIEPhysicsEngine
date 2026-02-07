@@ -15,6 +15,8 @@ private:
 	Vec2 m_gravity;
 	float m_timestep;
 	std::vector<PhysicsObject*> m_actors;
+    bool m_debugShowContactPoints = false;
+    bool m_isPhysicsSimulating = false;
 
 public:
 	PhysicsScene();
