@@ -4,7 +4,9 @@
 #include "imgui_impl_opengl3.h"
 #include "Maths.h"
 #include "Utilities.h"
+#include <SDL3/SDL_camera.h>
 #include <iostream>
+#include <fstream>
 
 SDL_Window* ApplicationHarness::window = nullptr;
 SDL_Gamepad* ApplicationHarness::gamepad = nullptr;

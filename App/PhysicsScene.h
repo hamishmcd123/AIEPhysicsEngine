@@ -3,6 +3,7 @@
 #include "Application.h"
 #include "PhysicsObject.h"
 #include <vector>
+#include "Serialiser.h"
 
 class PhysicsObject;
 struct CollisionInfo;
@@ -17,6 +18,7 @@ private:
 	std::vector<PhysicsObject*> m_actors;
     bool m_debugShowContactPoints = false;
     bool m_isPhysicsSimulating = false;
+    Serialiser serialiser;
 
 public:
 	PhysicsScene();
@@ -54,5 +56,12 @@ public:
    
     // NOTE: Only supports linear collisions for now.
     void ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const CollisionInfo& info);
+
+
+    static void SDLCALL OnLoadFileSelected(void* userdata, const char* const* filelist, int filter); 
+    static void SDLCALL SaveFile(void* userdata, const char* const* filelist, int filter);
+
+    void OpenLoadFileDialogue();
+    void OpenSaveFileDialogue(json& data);
 
 };

@@ -1,8 +1,10 @@
 #include "PhysicsScene.h"
+#include "ApplicationHarness.h"
 #include "Colour.h"
 #include "RigidBody.h"
 #include "Vec2.h"
 #include "imgui.h"
+#include <SDL3/SDL_dialog.h>
 #include <algorithm>
 #include <unistd.h>
 #include "PhysicsObject.h"
@@ -10,6 +12,9 @@
 #include "Plane.h"
 #include "Box.h"
 #include "CollisionInfo.h"
+#include <iostream>
+#include <string>
+#include <fstream>
 
 PhysicsScene::PhysicsScene()
 {
@@ -58,6 +63,14 @@ void PhysicsScene::Update(float delta)
     ImGui::Checkbox("Show collision contact points", &m_debugShowContactPoints); 
         if (ImGui::Button("Simulate!")) {
             m_isPhysicsSimulating ^= 1;
+        }
+    if (ImGui::Button("Load Scene")) {
+            OpenLoadFileDialogue();
+        }
+
+    if (ImGui::Button("Save Scene")) {
+            json savedata = serialiser.Save(m_actors);
+            OpenSaveFileDialogue(savedata);
         }
     ImGui::End();
 
@@ -510,4 +523,84 @@ void PhysicsScene::SetUpImGUItheme() {
 	style.Colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.0f, 1.0f, 1.0f, 0.7f);
 	style.Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.8f, 0.8f, 0.8f, 0.2f);
 	style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.8f, 0.8f, 0.8f, 0.35f);
+}
+
+void SDLCALL PhysicsScene::OnLoadFileSelected(void* userdata, const char* const* filelist, int filter) {
+
+    if (!filelist || !filelist[0]) {
+        std::cout << "No file selected...";
+        return;
+    }
+
+    const char* path = *filelist;
+
+    std::cout << "selected file: " << path << '\n';
+
+    std::fstream file(path, std::ios::in | std::ios::binary);
+
+    if (!file.is_open()) {
+        std::cerr << "Failed to open file\n";
+        return;
+    }
+
+    std::string contents(
+        (std::istreambuf_iterator<char>(file)),
+        std::istreambuf_iterator<char>()
+    );
+
+    std::cout << contents;
+
+}
+
+void SDLCALL PhysicsScene::SaveFile(void* userdata, const char* const* filelist, int filter) {
+
+    json* data = static_cast<json*>(userdata);
+
+    if (!filelist || !filelist[0]) {
+        std::cout << "Cancelled save...";
+    }
+    else {
+        const char* path = *filelist;
+        std::ofstream file(path);
+        std::string stringified = data->dump(3);
+        file.write(stringified.c_str(), stringified.size());
+    }
+
+    delete data;
+}
+
+
+
+void PhysicsScene::OpenLoadFileDialogue() {
+    SDL_DialogFileFilter filters[] = {
+        { "JSON", "json" }
+    };
+
+    SDL_ShowOpenFileDialog(
+        OnLoadFileSelected,
+        nullptr,
+        nullptr,
+        filters,
+        SDL_arraysize(filters),
+        nullptr,
+        false
+    );
+
+}
+
+void PhysicsScene::OpenSaveFileDialogue(json& data) {
+
+    SDL_DialogFileFilter filters[] = {
+            { "JSON", "json" }
+    };
+
+    json* dataptr = new json(data);
+
+    SDL_ShowSaveFileDialog(
+    SaveFile,
+    (void*)dataptr,
+    nullptr,
+    filters,
+    SDL_arraysize(filters),
+    nullptr);
 }
