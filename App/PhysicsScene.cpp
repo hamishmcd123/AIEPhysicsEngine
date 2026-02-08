@@ -50,7 +50,7 @@ void PhysicsScene::Initialise()
 void PhysicsScene::Update(float delta)
 {
 
-	ImGui::Begin("Window");
+	ImGui::Begin("Scene Graph");
     if (ImGui::TreeNode("Scene")) {
             for (const auto actor : m_actors) {
                 DisplayActor(actor);
@@ -379,15 +379,25 @@ void PhysicsScene::DisplayActor(PhysicsObject* Actor) {
         bool isOpen = ImGui::TreeNodeEx("PhysicsActor", flags);
 
         if (ImGui::IsItemClicked()) {
-            // In case the last actor was deleted.
+
+            // If there is already a selected actor, change its colour to the stored colour to restore it.
             if (SelectedActor) {
                 SelectedActor->SetColour(SelectedActorPrevColour);
             }
+            
+            // If the selected actor is this actor (and we click on it again), unselect it.
+            if (SelectedActor == CastedActor){
+                SelectedActor = nullptr;
+            }
+            
+            // If the selected actor is not the selected actor, change the selected actor to this one and change its colour to green.
+            else {
+                SelectedActor = CastedActor;
+                SelectedActorPrevColour = CastedActor->GetColour();
+                SelectedActor->SetColour(Colour::GREEN);
+            }
 
-            SelectedActor = CastedActor;
-            SelectedActorPrevColour = CastedActor->GetColour();
-            SelectedActor->SetColour(Colour::GREEN);
-        }
+       }
 
         if (isOpen) {
             if(ImGui::BeginTable("Properties", 2,ImGuiTableFlags_SizingStretchProp)) {
@@ -434,8 +444,8 @@ void PhysicsScene::DisplayActor(PhysicsObject* Actor) {
                         RemoveActor(Actor);
                     }
             ImGui::TreePop();
-        }
-            ImGui::PopID();
+        }   
+                      ImGui::PopID();
     }
 }
 

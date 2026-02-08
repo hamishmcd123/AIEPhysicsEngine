@@ -1,6 +1,5 @@
 #include "Serialiser.h"
 #include "PhysicsObject.h"
-#include <iostream>
 #include "Plane.h"
 #include "Circle.h"
 #include "Box.h"
