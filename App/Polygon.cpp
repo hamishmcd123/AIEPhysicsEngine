@@ -20,7 +20,7 @@ Polygon::Polygon(Vec2 pos, Vec2 velocity, float mass, int sides, float sidelengt
 void Polygon::Draw() {
     
     for (int i = 0; i < m_sides; i++) {
-        int next = (i + 1) % m_sides;
+        const int next = (i + 1) % m_sides;
         lines->DrawLineSegment(m_position + m_localVertices[i], m_position + m_localVertices[next]);
     }
 

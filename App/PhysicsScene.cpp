@@ -26,7 +26,7 @@ PhysicsScene::PhysicsScene()
 
 PhysicsScene::~PhysicsScene()
 {
-	for (PhysicsObject* actor : m_actors) {
+	for (const PhysicsObject* actor : m_actors) {
 		delete actor;
 	}
 }
@@ -52,7 +52,7 @@ void PhysicsScene::Update(float delta)
 
 	ImGui::Begin("Window");
     if (ImGui::TreeNode("Scene")) {
-            for (auto actor : m_actors) {
+            for (const auto actor : m_actors) {
                 DisplayActor(actor);
             }
             ImGui::TreePop();
@@ -88,7 +88,7 @@ void PhysicsScene::Update(float delta)
                     PhysicsObject* B = m_actors[inner];
 
                     //index = (A->m_ShapeID * N) + B
-                    int index = static_cast<int>(A->m_ShapeID) * 3 + static_cast<int>(B->m_ShapeID);
+                    const int index = static_cast<int>(A->m_ShapeID) * 3 + static_cast<int>(B->m_ShapeID);
                     CollisionInfo info = CollisionFunctions[index](A, B);
                     if (info.isColliding) {
                         ResolveCollisions(A, B, info);
@@ -96,7 +96,7 @@ void PhysicsScene::Update(float delta)
             }
         }
 
-        for (auto actor : m_actors) {
+        for (const auto actor : m_actors) {
                     if (actor->m_ShapeID == ShapeType::BOX) {
                         dynamic_cast<Box*>(actor)->ApplyForceAtPoint({1.0f, -1.0f}, {0.2f, 0.0f});
                     }
@@ -145,13 +145,13 @@ CollisionInfo PhysicsScene::Sphere2Plane(PhysicsObject *A, PhysicsObject *B) {
 
     // NOTE: For circle-plane collisions, the collision normal will be either -1 * planeNormal or the planeNormal. 
         CollisionInfo info;
-        Circle* CircleA = static_cast<Circle*>(A);
-        Plane* PlaneB = static_cast<Plane*>(B);
+        const Circle* CircleA = static_cast<Circle*>(A);
+        const Plane* PlaneB = static_cast<Plane*>(B);
 
         if (abs(Dot(CircleA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance()) <= CircleA->GetRadius())  {
             info.isColliding = true;
 
-            float distanceToPlane = Dot(CircleA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance();
+            const float distanceToPlane = Dot(CircleA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance();
             (distanceToPlane > 0) ? info.collisionNormal = PlaneB->GetNormal() : info.collisionNormal = -1.0f * PlaneB->GetNormal();
             info.penetrationDepth = CircleA->GetRadius() - abs(distanceToPlane);
             info.collisionPoint = CircleA->GetPosition() + CircleA->GetRadius() * info.collisionNormal;
@@ -164,14 +164,14 @@ CollisionInfo PhysicsScene::Plane2Sphere(PhysicsObject *A, PhysicsObject *B) {
 
     // NOTE: For circle-plane collisions, the collision normal will be either -1 * planeNormal or the planeNormal. 
             CollisionInfo info;
-            Plane* PlaneA = static_cast<Plane*>(A);
-            Circle* CircleB = static_cast<Circle*>(B);
+            const Plane* PlaneA = static_cast<Plane*>(A);
+            const Circle* CircleB = static_cast<Circle*>(B);
             
             if (abs(Dot(CircleB->GetPosition(), PlaneA->GetNormal()) - PlaneA->GetDistance()) <= CircleB->GetRadius())  {
                 info.isColliding = true;
 
                 // Get normal direction
-                float distanceToPlane = Dot(CircleB->GetPosition(), PlaneA->GetNormal()) - PlaneA->GetDistance();
+                const float distanceToPlane = Dot(CircleB->GetPosition(), PlaneA->GetNormal()) - PlaneA->GetDistance();
                 (distanceToPlane > 0) ? info.collisionNormal = -1.0f * PlaneA->GetNormal() : info.collisionNormal = PlaneA->GetNormal();
                 info.penetrationDepth = CircleB->GetRadius() - abs(distanceToPlane);
                 info.collisionPoint = CircleB->GetPosition() + CircleB->GetRadius() * info.collisionNormal;
@@ -185,8 +185,8 @@ CollisionInfo PhysicsScene::Sphere2Sphere(PhysicsObject *A, PhysicsObject *B) {
 
     CollisionInfo info;
 
-    Circle* CircleA = static_cast<Circle*>(A);
-    Circle* CircleB = static_cast<Circle*>(B);
+    const Circle* CircleA = static_cast<Circle*>(A);
+    const Circle* CircleB = static_cast<Circle*>(B);
 
     // TODO: Clean this up
     if ((CircleA->GetPosition() - CircleB->GetPosition()).GetMagnitudeSquared() < (CircleA->GetRadius() + CircleB->GetRadius()) * (CircleA->GetRadius() + CircleB->GetRadius())) {
@@ -208,12 +208,12 @@ CollisionInfo PhysicsScene::Box2Plane(PhysicsObject *A, PhysicsObject *B) {
     
     CollisionInfo info;
     Box* BoxA = static_cast<Box*>(A);
-    Plane* PlaneB = static_cast<Plane*>(B);
+    const Plane* PlaneB = static_cast<Plane*>(B);
 
         BoxA->UpdateLocalAxes();
 
-        float distance = Dot(BoxA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance();
-        float r = BoxA->GetHalfWidth() * abs(Dot(BoxA->GetLocalXAxis(), PlaneB->GetNormal())) + BoxA->GetHalfHeight() * abs(Dot(BoxA->GetLocalYAxis(), PlaneB->GetNormal()));
+        const float distance = Dot(BoxA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance();
+        const float r = BoxA->GetHalfWidth() * abs(Dot(BoxA->GetLocalXAxis(), PlaneB->GetNormal())) + BoxA->GetHalfHeight() * abs(Dot(BoxA->GetLocalYAxis(), PlaneB->GetNormal()));
         
         if (abs(distance) <= r) {
             info.isColliding = true;
@@ -229,10 +229,12 @@ CollisionInfo PhysicsScene::Box2Plane(PhysicsObject *A, PhysicsObject *B) {
 CollisionInfo PhysicsScene::Plane2Box(PhysicsObject *A, PhysicsObject *B) {
     CollisionInfo info;
     Box* BoxB = static_cast<Box*>(B);
-    Plane* PlaneA = static_cast<Plane*>(A);
+    const Plane* PlaneA = static_cast<Plane*>(A);
 
-        float distance = Dot(BoxB->GetPosition(), PlaneA->GetNormal()) - PlaneA->GetDistance();
-        float r = BoxB->GetHalfWidth() * abs(Dot(BoxB->GetLocalXAxis(), PlaneA->GetNormal())) + BoxB->GetHalfHeight() * abs(Dot(BoxB->GetLocalYAxis(), PlaneA->GetNormal()));
+    BoxB->UpdateLocalAxes();
+
+        const float distance = Dot(BoxB->GetPosition(), PlaneA->GetNormal()) - PlaneA->GetDistance();
+        const float r = BoxB->GetHalfWidth() * abs(Dot(BoxB->GetLocalXAxis(), PlaneA->GetNormal())) + BoxB->GetHalfHeight() * abs(Dot(BoxB->GetLocalYAxis(), PlaneA->GetNormal()));
         
         if (abs(distance )<= r) {
             info.isColliding = true;
@@ -245,12 +247,12 @@ CollisionInfo PhysicsScene::Plane2Box(PhysicsObject *A, PhysicsObject *B) {
 CollisionInfo PhysicsScene::Box2Sphere(PhysicsObject *A, PhysicsObject *B) {
     CollisionInfo info;
     Box* BoxA = static_cast<Box*>(A);
-    Circle* CircleB = static_cast<Circle*>(B);
+    const Circle* CircleB = static_cast<Circle*>(B);
     
     BoxA->UpdateLocalAxes();
 
     //NOTE: Transform the circle's position so that its in the OBB's local axes, where the OBB is centered at 0,0
-    Vec2 RelativePos = CircleB->GetPosition() - BoxA->GetPosition();
+    const Vec2 RelativePos = CircleB->GetPosition() - BoxA->GetPosition();
 
     Vec2 CirclePos;
 
@@ -258,15 +260,15 @@ CollisionInfo PhysicsScene::Box2Sphere(PhysicsObject *A, PhysicsObject *B) {
     CirclePos.y = Dot(RelativePos, BoxA->GetLocalYAxis());
 
     // Get position on box that is closet to circle.
-    Vec2 closest = {Clamp<float>(CirclePos.x, -BoxA->GetHalfWidth(),BoxA->GetHalfWidth()), 
+    const Vec2 closest = {Clamp<float>(CirclePos.x, -BoxA->GetHalfWidth(),BoxA->GetHalfWidth()),
     Clamp<float>(CirclePos.y,-BoxA->GetHalfHeight(),BoxA->GetHalfHeight())};
 
-    float distance = (closest - CirclePos).GetMagnitude();
+    const float distance = (closest - CirclePos).GetMagnitude();
     
     if (distance <= CircleB->GetRadius()) {
         info.isColliding = true;
         info.penetrationDepth = CircleB->GetRadius() - distance;
-        Vec2 collisionNormalLocal = (closest - CirclePos).Normalise();
+        const Vec2 collisionNormalLocal = (closest - CirclePos).Normalise();
         info.collisionNormal = (BoxA->GetLocalXAxis() * collisionNormalLocal.x) + (BoxA->GetLocalYAxis() * collisionNormalLocal.y);
         info.collisionPoint = (CircleB->GetPosition() + CircleB->GetRadius() * info.collisionNormal);
     }
@@ -277,10 +279,10 @@ CollisionInfo PhysicsScene::Sphere2Box(PhysicsObject* A, PhysicsObject *B) {
 
     CollisionInfo info;
     Box* BoxB = static_cast<Box*>(B);
-    Circle* CircleA = static_cast<Circle*>(A);
+    const Circle* CircleA = static_cast<Circle*>(A);
 
     BoxB->UpdateLocalAxes();
-    Vec2 RelativePos = CircleA->GetPosition() - BoxB->GetPosition();
+    const Vec2 RelativePos = CircleA->GetPosition() - BoxB->GetPosition();
 
     Vec2 CirclePos;
 
@@ -288,15 +290,15 @@ CollisionInfo PhysicsScene::Sphere2Box(PhysicsObject* A, PhysicsObject *B) {
     CirclePos.y = Dot(RelativePos, BoxB->GetLocalYAxis());
 
     // Get position on box that is closet to circle.
-    Vec2 closest = {Clamp<float>(CirclePos.x, -BoxB->GetHalfWidth(),BoxB->GetHalfWidth()), 
+    const Vec2 closest = {Clamp<float>(CirclePos.x, -BoxB->GetHalfWidth(),BoxB->GetHalfWidth()),
     Clamp<float>(CirclePos.y,-BoxB->GetHalfHeight(),BoxB->GetHalfHeight())};
 
-    float distance = (closest - CirclePos).GetMagnitude();
+    const float distance = (closest - CirclePos).GetMagnitude();
     
     if (distance <= CircleA->GetRadius()) {
         info.isColliding = true;
         info.penetrationDepth = CircleA->GetRadius() - distance;
-        Vec2 collisionNormalLocal = (CirclePos - closest).Normalise();
+        const Vec2 collisionNormalLocal = (CirclePos - closest).Normalise();
         info.collisionNormal = (BoxB->GetLocalXAxis() * collisionNormalLocal.x) + (BoxB->GetLocalYAxis() * collisionNormalLocal.y);
         info.collisionPoint = (CircleA->GetPosition() - CircleA->GetRadius() * info.collisionNormal);
     }
@@ -320,11 +322,11 @@ CollisionInfo PhysicsScene::Box2Box(PhysicsObject *A, PhysicsObject *B) {
 
     for (Vec2& axis : axes) {
 
-        float dist = Dot(BoxA->GetPosition() - BoxB->GetPosition(), axis);
-        float rA = abs(Dot(BoxA->GetLocalXAxis() * BoxA->GetHalfWidth(), axis)) + abs(Dot(BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(), axis));
-        float rB = abs(Dot(BoxB->GetLocalXAxis() * BoxB->GetHalfWidth(), axis)) + abs(Dot(BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(), axis));
+        const float dist = Dot(BoxA->GetPosition() - BoxB->GetPosition(), axis);
+        const float rA = abs(Dot(BoxA->GetLocalXAxis() * BoxA->GetHalfWidth(), axis)) + abs(Dot(BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(), axis));
+        const float rB = abs(Dot(BoxB->GetLocalXAxis() * BoxB->GetHalfWidth(), axis)) + abs(Dot(BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(), axis));
 
-        float overlap = (rA + rB) - abs(dist);
+        const float overlap = (rA + rB) - abs(dist);
 
         // Separating axis found
         if (overlap <= 0) return info;
@@ -348,14 +350,14 @@ void PhysicsScene::ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const C
     if (Dot(relativeVelocity, info.collisionNormal) < 0) {
         if (m_debugShowContactPoints) lines->DrawCircle(info.collisionPoint, 0.05f, Colour::RED);
         float impulseMagnitude = -1.8 * (Dot(relativeVelocity, info.collisionNormal)) / (A->GetInverseMass() + B->GetInverseMass());
-        Vec2 newVelocityA = A->GetVelocity() + A->GetInverseMass() * (impulseMagnitude * info.collisionNormal);
-        Vec2 newVelocityB = B->GetVelocity() - B->GetInverseMass() *  (impulseMagnitude * info.collisionNormal);
+        const Vec2 newVelocityA = A->GetVelocity() + A->GetInverseMass() * (impulseMagnitude * info.collisionNormal);
+        const Vec2 newVelocityB = B->GetVelocity() - B->GetInverseMass() *  (impulseMagnitude * info.collisionNormal);
         A->SetVelocity(newVelocityA);
         B->SetVelocity(newVelocityB);
     }
 
-    float totalInverseMass = A->GetInverseMass() + B->GetInverseMass(); 
-    if (totalInverseMass > 0.0f) { Vec2 correction = (info.penetrationDepth / totalInverseMass) * info.collisionNormal;
+    const float totalInverseMass = A->GetInverseMass() + B->GetInverseMass();
+    if (totalInverseMass > 0.0f) { const Vec2 correction = (info.penetrationDepth / totalInverseMass) * info.collisionNormal;
         A->SetPosition( A->GetPosition() + A->GetInverseMass() * correction );
         B->SetPosition( B->GetPosition() - B->GetInverseMass() * correction );
     }
@@ -543,7 +545,7 @@ void SDLCALL PhysicsScene::OnLoadFileSelected(void* userdata, const char* const*
         return;
     }
 
-    std::string contents(
+    const std::string contents(
         (std::istreambuf_iterator<char>(file)),
         std::istreambuf_iterator<char>()
     );
@@ -562,7 +564,7 @@ void SDLCALL PhysicsScene::SaveFile(void* userdata, const char* const* filelist,
     else {
         const char* path = *filelist;
         std::ofstream file(path);
-        std::string stringified = data->dump(3);
+        const std::string stringified = data->dump(3);
         file.write(stringified.c_str(), stringified.size());
     }
 

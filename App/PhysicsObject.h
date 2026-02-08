@@ -11,7 +11,7 @@ enum class ShapeType : int {
 
 class PhysicsObject {
 protected:
-	PhysicsObject(ShapeType shapeType) : m_ShapeID(shapeType) {}
+	PhysicsObject(const ShapeType shapeType) : m_ShapeID(shapeType) {}
 public:
 
     // NOTE: Marked as virtual since we are deleting through this base type.
@@ -23,10 +23,10 @@ public:
 	ShapeType m_ShapeID;
 
     // For collision resolution
-    virtual float GetInverseMass() = 0;
-    virtual Vec2 GetVelocity() = 0;
+    virtual float GetInverseMass() const = 0;
+    virtual Vec2 GetVelocity() const = 0;
     virtual void SetVelocity(const Vec2 velocity) = 0;
     virtual void SetPosition(const Vec2 position) = 0;
-    virtual Vec2 GetPosition() = 0;
+    virtual Vec2 GetPosition() const = 0;
 	static LineRenderer* lines;
 };

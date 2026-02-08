@@ -3,34 +3,34 @@
 #include "Vec2.h"
 
 
-RigidBody::RigidBody(ShapeType shapeID, Vec2 position, Vec2 velocity, float orientation, float mass, Colour colour) : PhysicsObject(shapeID), m_position(position), m_velocity(velocity), m_orientation(orientation), m_mass(mass), m_colour(colour)
+RigidBody::RigidBody(const ShapeType shapeID, const Vec2 position, const Vec2 velocity, const float orientation, const float mass, const Colour colour) : PhysicsObject(shapeID), m_orientation(orientation), m_colour(colour), m_position(position), m_velocity(velocity), m_mass(mass)
 {
 	m_invMass = 1.0f / mass;
 }
 
-void RigidBody::FixedUpdate(Vec2 gravity, float timeStep)
+void RigidBody::FixedUpdate(const Vec2 gravity, const float timeStep)
 {
 	// Apply gravity
 	ApplyForce(gravity * m_mass);
 
     // Linear
-	Vec2 acceleration = ResolveForces();
+	const Vec2 acceleration = ResolveForces();
 	m_velocity += acceleration * timeStep;
 	m_position += m_velocity * timeStep;
 
     // Rotational
-    float angularAcceleration = ResolveAngular();
+    const float angularAcceleration = ResolveAngular();
     m_angularVelocity += angularAcceleration * timeStep;
     m_orientation += angularAcceleration * timeStep;
 
 }
 
-void RigidBody::ApplyForce(Vec2 force)
+void RigidBody::ApplyForce(const Vec2 force)
 {
 	m_forceAccumulated += force;
 }
 
-void RigidBody::ApplyForceAtPoint(Vec2 force, Vec2 pos) {
+void RigidBody::ApplyForceAtPoint(const Vec2 force, const Vec2 pos) {
 
     m_forceAccumulated += force;
 
@@ -48,20 +48,18 @@ void RigidBody::ResetPosition()
 
 Vec2 RigidBody::ResolveForces()
 {
-	Vec2 acceleration;
-	acceleration = m_forceAccumulated * m_invMass;
+	const Vec2 acceleration = m_forceAccumulated * m_invMass;
 	m_forceAccumulated = { 0, 0 };
 	return acceleration;
 }
 
-void RigidBody::ApplyImpulse(Vec2 impulse)
+void RigidBody::ApplyImpulse(const Vec2 impulse)
 {
 	m_velocity += impulse * m_invMass;
 }
 
 float RigidBody::ResolveAngular() {
-    float angularAcceleration;
-    angularAcceleration = m_torqueAccumulated * m_invMoment;
+	const float angularAcceleration = m_torqueAccumulated * m_invMoment;
     m_torqueAccumulated = 0;
     return angularAcceleration;
 }

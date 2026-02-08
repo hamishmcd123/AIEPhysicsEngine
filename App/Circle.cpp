@@ -1,6 +1,6 @@
 #include "Circle.h"
 
-Circle::Circle(Vec2 position, Vec2 velocity, float mass, float radius, Colour colour) : RigidBody(ShapeType::CIRCLE, position, velocity, 0, mass, colour), m_radius(radius)
+Circle::Circle(const Vec2 position, const Vec2 velocity, const float mass, const float radius, const Colour colour) : RigidBody(ShapeType::CIRCLE, position, velocity, 0, mass, colour), m_radius(radius)
 {
 }
 

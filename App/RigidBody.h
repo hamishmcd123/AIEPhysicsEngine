@@ -10,19 +10,19 @@ public:
 	void ApplyForce(Vec2 force);
     void ApplyForceAtPoint(Vec2 force, Vec2 pos);
 	void ResetPosition() override;
-	float GetOrientation() { return m_orientation; }
-	Vec2 GetVelocity() override { return m_velocity; }
+	[[nodiscard]] float GetOrientation() const { return m_orientation; }
+	[[nodiscard]] Vec2 GetVelocity() const override { return m_velocity; }
     void SetVelocity(const Vec2 velocity) override {m_velocity = velocity;}
-	float GetMass() { return m_mass; }
-    float GetInverseMass() override {return m_invMass;}
+	[[nodiscard]] float GetMass() const { return m_mass; }
+    [[nodiscard]] float GetInverseMass() const override {return m_invMass;}
 	Vec2 ResolveForces();
     float ResolveAngular();
 	void ApplyImpulse(Vec2 impulse);
-    Vec2 GetPosition() override {return m_position;}
+    [[nodiscard]] Vec2 GetPosition() const override {return m_position;}
     void SetPosition(const Vec2 position) override {m_position = position; }
     void SetColour(const Colour colour) {m_colour = colour;}
 	float m_orientation;
-    Colour GetColour() {return m_colour;}
+    [[nodiscard]] Colour GetColour() const {return m_colour;}
 protected:
     Colour m_colour;
 	Vec2 m_position;

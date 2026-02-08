@@ -9,7 +9,7 @@ json Serialiser::Save(const std::vector<PhysicsObject*>& actors) {
 
     json output;
 
-    for (auto current : actors) {
+    for (const auto current : actors) {
         switch(current->m_ShapeID) {
 
             case ShapeType::PLANE:{
