@@ -120,7 +120,7 @@ void PhysicsScene::RemoveActor(PhysicsObject* actor)
 
 void PhysicsScene::OnLeftClick()
 {
-    AddActor(new Circle(cursorPos, {0.0f, 0.0f}, 40.0f, 0.25f, 0.0f, Colour::BLUE));
+    AddActor(new Circle(cursorPos, {0.0f, 0.0f}, 400.0f, 0.25f, 0.0f, Colour::BLUE));
 
 }
 
@@ -205,48 +205,48 @@ CollisionInfo PhysicsScene::Plane2Plane(PhysicsObject *A, PhysicsObject *B) {
     return CollisionInfo();
 }
 
-CollisionInfo PhysicsScene::Box2Plane(PhysicsObject *A, PhysicsObject *B) {
-    
+CollisionInfo PhysicsScene::Box2Plane(PhysicsObject* A, PhysicsObject* B) {
+
     CollisionInfo info;
     Box* BoxA = static_cast<Box*>(A);
     const Plane* PlaneB = static_cast<Plane*>(B);
 
-	BoxA->UpdateLocalAxes();
+    BoxA->UpdateLocalAxes();
 
-	const float distance = Dot(BoxA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance();
-	const float r = BoxA->GetHalfWidth() * abs(Dot(BoxA->GetLocalXAxis(), PlaneB->GetNormal())) + BoxA->GetHalfHeight() * abs(Dot(BoxA->GetLocalYAxis(), PlaneB->GetNormal()));
-	
-	if (abs(distance) <= r) {
-		info.isColliding = true;
-		info.penetrationDepth = r - abs(distance);
-		info.collisionNormal = distance > 0 ? PlaneB->GetNormal() : -1.0f * PlaneB->GetNormal();
+    const float distance = Dot(BoxA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance();
+    const float r = BoxA->GetHalfWidth() * abs(Dot(BoxA->GetLocalXAxis(), PlaneB->GetNormal())) + BoxA->GetHalfHeight() * abs(Dot(BoxA->GetLocalYAxis(), PlaneB->GetNormal()));
 
-		// Horrible, change later...
-		std::array<std::pair<Vec2, float>, 4> VertexDistancePairs;
-		VertexDistancePairs[0].first = BoxA->GetPosition() + BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() + BoxA->GetLocalYAxis() * BoxA->GetHalfHeight();
-		VertexDistancePairs[1].first = BoxA->GetPosition() + BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() - BoxA->GetLocalYAxis() * BoxA->GetHalfHeight();
-		VertexDistancePairs[2].first = BoxA->GetPosition() - BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() + BoxA->GetLocalYAxis() * BoxA->GetHalfHeight();
-		VertexDistancePairs[3].first = BoxA->GetPosition() - BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() - BoxA->GetLocalYAxis() * BoxA->GetHalfHeight();
+    if (abs(distance) <= r) {
+        info.isColliding = true;
+        info.penetrationDepth = r - abs(distance);
+        info.collisionNormal = -1.0f * PlaneB->GetNormal();
 
-		for (int i = 0; i < 4; i++) {
-			VertexDistancePairs[i].second = Dot(VertexDistancePairs[i].first, PlaneB->GetNormal()) - PlaneB->GetDistance();
-		}
+        const Vec2 vertices[4] = { BoxA->GetPosition() + BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() + BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
+								   BoxA->GetPosition() + BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() - BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
+                                   BoxA->GetPosition() - BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() + BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
+                                   BoxA->GetPosition() - BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() - BoxA->GetLocalYAxis() * BoxA->GetHalfHeight()
+									};
 
-		std::sort(VertexDistancePairs.begin(), VertexDistancePairs.end(), [](const auto& a, const auto& b) {
-			return a.second < b.second;
-			});
+        float lowest = FLT_MAX;
+        Vec2 bestVertex;
+        
+        for (int i = 0; i < 4; i++) {
+            float currentDistance = Dot(vertices[i], PlaneB->GetNormal()) - PlaneB->GetDistance();
+            if (currentDistance < lowest) {
 
-		// Maybe add an epsilon
-		if (VertexDistancePairs[0].second - VertexDistancePairs[1].second == 0) {
-			info.collisionPoint = 0.5f * (VertexDistancePairs[0].first + VertexDistancePairs[1].first);
-		}
-		else {
-			info.collisionPoint = VertexDistancePairs[0].first;
-		}
-	}
+                lowest = currentDistance;
+                bestVertex = vertices[i];
+            }
+            else {
+                continue;
+            }
+        
+            info.collisionPoint = bestVertex;
+        }
+    };
+    return info;
 
-        return info;
-};
+}
 
 CollisionInfo PhysicsScene::Plane2Box(PhysicsObject *A, PhysicsObject *B) {
     CollisionInfo info;
@@ -261,29 +261,29 @@ CollisionInfo PhysicsScene::Plane2Box(PhysicsObject *A, PhysicsObject *B) {
 	if (abs(distance) <= r) {
 		info.isColliding = true;
 		info.penetrationDepth = r - abs(distance);
-		info.collisionNormal = distance > 0 ? -1.0f * PlaneA->GetNormal() : PlaneA->GetNormal();
+		info.collisionNormal = -1.0f * PlaneA->GetNormal();
 		
-		// Horrible, change later...
-		std::array<std::pair<Vec2, float>, 4> VertexDistancePairs;
-		VertexDistancePairs[0].first = BoxB->GetPosition() + BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() + BoxB->GetLocalYAxis() * BoxB->GetHalfHeight();
-		VertexDistancePairs[1].first = BoxB->GetPosition() + BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() - BoxB->GetLocalYAxis() * BoxB->GetHalfHeight();
-		VertexDistancePairs[2].first = BoxB->GetPosition() - BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() + BoxB->GetLocalYAxis() * BoxB->GetHalfHeight();
-		VertexDistancePairs[3].first = BoxB->GetPosition() - BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() - BoxB->GetLocalYAxis() * BoxB->GetHalfHeight();
+        const Vec2 vertices[4] = { BoxB->GetPosition() + BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() + BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
+								   BoxB->GetPosition() + BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() - BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
+                                   BoxB->GetPosition() - BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() + BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
+                                   BoxB->GetPosition() - BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() - BoxB->GetLocalYAxis() * BoxB->GetHalfHeight()
+									};
 
-		for (int i = 0; i < 4; i++) {
-			VertexDistancePairs[i].second = Dot(VertexDistancePairs[i].first, PlaneA->GetNormal()) - PlaneA->GetDistance();
-		}
-		
-		std::sort(VertexDistancePairs.begin(), VertexDistancePairs.end(), [](const auto& a, const auto& b) {
-			return a.second < b.second;
-		});
-		
-		if ((VertexDistancePairs[0].second - VertexDistancePairs[1].second) == 0) {
-			info.collisionPoint = 0.5f * (VertexDistancePairs[0].first + VertexDistancePairs[1].first);
-		}
-		else {
-			info.collisionPoint = VertexDistancePairs[0].first;
-		}
+        float lowest = FLT_MAX;
+        Vec2 bestVertex;
+        
+        for (int i = 0; i < 4; i++) {
+            float currentDistance = Dot(vertices[i], PlaneA->GetNormal()) - PlaneA->GetDistance();
+            if (currentDistance < lowest) {
+                lowest = currentDistance;
+                bestVertex = vertices[i];
+            }
+            else {
+                continue;
+            }
+        
+            info.collisionPoint = bestVertex;
+        }
 	}
     return info;
 }
@@ -389,6 +389,9 @@ CollisionInfo PhysicsScene::Box2Box(PhysicsObject *A, PhysicsObject *B) {
     
     if (bestIndex == 1 || bestIndex == 2) {
 	// BoxA owns the best axis, so project BoxB vertices onto that.
+        float lowestProj = FLT_MAX;
+        Vec2 bestVertex;
+
         Vec2 vertices[4] = {
             BoxB->GetPosition() + BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() + BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
             BoxB->GetPosition() + BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() - BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
@@ -396,19 +399,19 @@ CollisionInfo PhysicsScene::Box2Box(PhysicsObject *A, PhysicsObject *B) {
             BoxB->GetPosition() - BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() - BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
         };
 
-        // Horrible, change later...
-
-        std::array<float, 4> projs;
         for (int i = 0; i < 4; i++) {
-            projs[i] = Dot(vertices[i], -1.0f * bestAxis);
+          float thisProj = Dot(vertices[i], -1.0f * bestAxis);
+          if (thisProj < lowestProj) {
+              lowestProj = thisProj;
+              bestVertex = vertices[i];
+          }
         }
-
-        auto it = std::min_element(projs.begin(), projs.end());
-        int correspondingIndex = std::distance(projs.begin(), it);
-        info.collisionPoint = vertices[correspondingIndex];
+        info.collisionPoint = bestVertex;
     }
 
     else {
+	float lowestProj = FLT_MAX;
+	Vec2 bestVertex;
     // BoxB owns the best axis, so project BoxA vertices onto that.
 	Vec2 vertices[4] = {
             BoxA->GetPosition() + BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() + BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
@@ -417,14 +420,15 @@ CollisionInfo PhysicsScene::Box2Box(PhysicsObject *A, PhysicsObject *B) {
             BoxA->GetPosition() - BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() - BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
         };
 
-        // Horrible, change later...
-        std::array<float, 4> projs;
+        // horrible, change later...
         for (int i = 0; i < 4; i++) {
-            projs[i] = Dot(vertices[i], bestAxis);
+          float thisProj = Dot(vertices[i], bestAxis);
+		  if (thisProj < lowestProj) {
+			  lowestProj = thisProj;
+              bestVertex = vertices[i];
+          }
         }
-        auto it = std::min_element(projs.begin(), projs.end());
-        int correspondingIndex = std::distance(projs.begin(), it);
-        info.collisionPoint = vertices[correspondingIndex];
+        info.collisionPoint = bestVertex;
     }
     info.isColliding = true;
     info.penetrationDepth = minOverlap;
@@ -433,10 +437,9 @@ CollisionInfo PhysicsScene::Box2Box(PhysicsObject *A, PhysicsObject *B) {
 }
 
 
-//NOTE: Only handles linear cases right now
 void PhysicsScene::ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const CollisionInfo& info) {
     
-    float e = 0.9f;
+    float e = 0.4f;
     Vec2 rA = info.collisionPoint - A->GetPosition();
     Vec2 rB = info.collisionPoint - B->GetPosition();
     
