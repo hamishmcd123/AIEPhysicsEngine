@@ -66,6 +66,8 @@ public:
 	static Vec2 GetInputDirection(Axis horizontalAxis, Axis verticalAxis, bool flipVertical = false, int gamepadNum = 0);
 	static Vec2 GetInputDirection(Key upKey, Key leftKey, Key downKey, Key rightKey, bool normalise = true);
 
+    static void SDLCALL OnFileSelected(void* userdata, const char* const* filelist, int filter); 
+    void OpenFileDialogue();
 
 	void SetPixelDensityScale(float scale);
 

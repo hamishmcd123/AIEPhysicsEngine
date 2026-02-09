@@ -4,7 +4,9 @@
 #include "imgui_impl_opengl3.h"
 #include "Maths.h"
 #include "Utilities.h"
+#include <SDL3/SDL_camera.h>
 #include <iostream>
+#include <fstream>
 
 SDL_Window* ApplicationHarness::window = nullptr;
 SDL_Gamepad* ApplicationHarness::gamepad = nullptr;
@@ -264,7 +266,7 @@ void ApplicationHarness::OnMouseRelease(int mouseButton)
 
 void ApplicationHarness::OnMouseScroll(bool positive)
 {
-	if (!app->GetAppInfo().camera.disable)
+	if (!app->GetAppInfo().camera.disable && ImGui::GetIO().WantCaptureMouse == 0)
 	{
 		float zoom = app->GetAppInfo().camera.zoomFactor;
 		app->ScaleCameraHeight(positive ? 1.0f / zoom : zoom);

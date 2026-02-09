@@ -6,4 +6,5 @@ struct CollisionInfo {
     bool isColliding = false;
     float penetrationDepth;
     Vec2 collisionNormal;
+    Vec2 collisionPoint;
 };

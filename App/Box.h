@@ -5,13 +5,16 @@
 
 class Box : public RigidBody {
 public:
-    Box(Vec2 pos, Vec2 velocity, float mass, float halfWidth, float halfHeight, Colour colour);
+    Box(const Vec2 pos, const Vec2 velocity, const float mass, const float halfWidth, const float halfHeight, const float orientation, const Colour colour);
     void Draw() override;
-    float GetHalfWidth() {return m_halfWidth;}
-    float GetHalfHeight() {return m_halfHeight;}
+    void UpdateLocalAxes();
+    [[nodiscard]] float GetHalfWidth() const {return m_halfWidth;}
+    [[nodiscard]] float GetHalfHeight() const {return m_halfHeight;}
+    [[nodiscard]] Vec2 GetLocalXAxis() const {return m_localXAxis;}
+    [[nodiscard]] Vec2 GetLocalYAxis() const {return m_localYAxis;}
 private:
     float m_halfWidth;
     float m_halfHeight;
-    float m_inverseMass;
-    Colour m_colour;
+    Vec2 m_localXAxis;
+    Vec2 m_localYAxis;
 };

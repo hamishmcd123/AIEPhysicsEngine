@@ -1,11 +1,9 @@
 #pragma once
 
 #include "Application.h"
-#include "Colour.h"
-#include "Maths.h"
 #include "PhysicsObject.h"
-#include "TextStream.h"
 #include <vector>
+#include "Serialiser.h"
 
 class PhysicsObject;
 struct CollisionInfo;
@@ -18,6 +16,9 @@ private:
 	Vec2 m_gravity;
 	float m_timestep;
 	std::vector<PhysicsObject*> m_actors;
+    bool m_debugShowContactPoints = false;
+    bool m_isPhysicsSimulating = false;
+    Serialiser serialiser;
 
 public:
 	PhysicsScene();
@@ -31,7 +32,7 @@ public:
 	void OnLeftClick() override;
 	void SetGravity(const Vec2 gravity) {}
     void OnRightClick() override;
-
+    void ClearAllActor();
 	typedef CollisionInfo (*CollisionFunction)(PhysicsObject*, PhysicsObject*);
     //index = (A->m_ShapeID * N) + B
 	CollisionFunction CollisionFunctions[9] = {Plane2Plane, Plane2Sphere, Plane2Box,
@@ -49,8 +50,18 @@ public:
     static CollisionInfo Box2Plane(PhysicsObject* A, PhysicsObject* B);
     static CollisionInfo Box2Sphere(PhysicsObject* A, PhysicsObject* B);
     static CollisionInfo Box2Box(PhysicsObject* A, PhysicsObject* B);
+
+    void DisplayActor(PhysicsObject* Actor);
+    void SetUpImGUItheme();
    
     // NOTE: Only supports linear collisions for now.
     void ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const CollisionInfo& info);
+
+
+    static void SDLCALL OnLoadFileSelected(void* userdata, const char* const* filelist, int filter); 
+    static void SDLCALL SaveFile(void* userdata, const char* const* filelist, int filter);
+
+    void OpenLoadFileDialogue(void* reference);
+    void OpenSaveFileDialogue(json& data);
 
 };
