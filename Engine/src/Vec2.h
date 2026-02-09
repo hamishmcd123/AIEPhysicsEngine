@@ -41,3 +41,4 @@ Vec2 operator-(Vec2 v);
 float Dot(Vec2 a, Vec2 b);
 float PseudoCross(Vec2 a, Vec2 b);
 float AngleBetween(Vec2 a, Vec2 b);
+Vec2 PseudoCross(Vec2 a, float b);

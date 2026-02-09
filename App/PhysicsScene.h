@@ -32,7 +32,7 @@ public:
 	void OnLeftClick() override;
 	void SetGravity(const Vec2 gravity) {}
     void OnRightClick() override;
-
+    void ClearAllActor();
 	typedef CollisionInfo (*CollisionFunction)(PhysicsObject*, PhysicsObject*);
     //index = (A->m_ShapeID * N) + B
 	CollisionFunction CollisionFunctions[9] = {Plane2Plane, Plane2Sphere, Plane2Box,
@@ -61,7 +61,7 @@ public:
     static void SDLCALL OnLoadFileSelected(void* userdata, const char* const* filelist, int filter); 
     static void SDLCALL SaveFile(void* userdata, const char* const* filelist, int filter);
 
-    void OpenLoadFileDialogue();
+    void OpenLoadFileDialogue(void* reference);
     void OpenSaveFileDialogue(json& data);
 
 };

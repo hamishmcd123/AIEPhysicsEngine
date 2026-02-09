@@ -1,7 +1,9 @@
 #include "Circle.h"
 
-Circle::Circle(const Vec2 position, const Vec2 velocity, const float mass, const float radius, const Colour colour) : RigidBody(ShapeType::CIRCLE, position, velocity, 0, mass, colour), m_radius(radius)
+Circle::Circle(const Vec2 position, const Vec2 velocity, const float mass, const float radius, const float orientation, const Colour colour) : RigidBody(ShapeType::CIRCLE, position, velocity, orientation, mass, colour), m_radius(radius)
 {
+	m_moment = 0.5f * m_mass * m_radius * m_radius;
+	m_invMoment = 1 / m_invMoment;
 }
 
 void Circle::Draw()

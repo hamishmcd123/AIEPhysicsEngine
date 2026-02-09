@@ -181,3 +181,8 @@ float AngleBetween(Vec2 a, Vec2 b)
 {
 	return acosf(Dot(a, b));
 }
+
+Vec2 PseudoCross(Vec2 a, float b)
+{
+	return Vec2{ -b * a.y, b * a.x };
+}

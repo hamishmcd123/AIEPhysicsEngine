@@ -3,8 +3,10 @@
 #include <vector>
 #include "PhysicsObject.h"
 
+
 using json = nlohmann::json;
 
+class PhysicsScene;
 
 class Serialiser {
 public:
@@ -14,6 +16,7 @@ public:
 //
 json Save(const std::vector<PhysicsObject*>& actors);
 
+void Load(PhysicsScene* sceneref, void* data);
 };
 
 

@@ -3,6 +3,8 @@
 #include "Plane.h"
 #include "Circle.h"
 #include "Box.h"
+#include <iostream>
+#include "PhysicsScene.h"
 
 json Serialiser::Save(const std::vector<PhysicsObject*>& actors) {
 
@@ -57,3 +59,12 @@ json Serialiser::Save(const std::vector<PhysicsObject*>& actors) {
     }
     return output;
 }
+
+void Serialiser::Load(PhysicsScene* sceneref, void* data)
+{
+    char* dataconv = (char*)(data);
+    json jsonconv = json::parse(dataconv);
+    delete data;
+}
+
+

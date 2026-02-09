@@ -11,7 +11,6 @@ target_sources(App PUBLIC
     "PhysicsObject.cpp"
     "Plane.cpp"
     "Box.cpp"
-    "Polygon.cpp"
     "Serialiser.cpp"
 )
 

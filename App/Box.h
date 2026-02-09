@@ -5,7 +5,7 @@
 
 class Box : public RigidBody {
 public:
-    Box(Vec2 pos, Vec2 velocity, float mass, float halfWidth, float halfHeight, Colour colour);
+    Box(const Vec2 pos, const Vec2 velocity, const float mass, const float halfWidth, const float halfHeight, const float orientation, const Colour colour);
     void Draw() override;
     void UpdateLocalAxes();
     [[nodiscard]] float GetHalfWidth() const {return m_halfWidth;}

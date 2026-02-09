@@ -6,7 +6,6 @@ enum class ShapeType : int {
 	PLANE = 0,
 	CIRCLE = 1,
 	BOX = 2,
-    POLYGON = 3
 };
 
 class PhysicsObject {
@@ -25,8 +24,11 @@ public:
     // For collision resolution
     virtual float GetInverseMass() const = 0;
     virtual Vec2 GetVelocity() const = 0;
-    virtual void SetVelocity(const Vec2 velocity) = 0;
+	virtual void ApplyImpulse(const Vec2 impulse, const Vec2 contactpoint) = 0;
+	virtual void ApplyImpulse(const Vec2 impulse) = 0;
     virtual void SetPosition(const Vec2 position) = 0;
     virtual Vec2 GetPosition() const = 0;
+	virtual float GetAngularVelocity() const = 0;
+	virtual float GetInverseMoment() const = 0;
 	static LineRenderer* lines;
 };
