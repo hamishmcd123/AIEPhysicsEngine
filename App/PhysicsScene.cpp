@@ -120,7 +120,7 @@ void PhysicsScene::RemoveActor(PhysicsObject* actor)
 
 void PhysicsScene::OnLeftClick()
 {
-    AddActor(new Circle(cursorPos, {0.0f, 0.0f}, 10.0f, 0.25f, 0.0f, Colour::BLUE));
+    AddActor(new Circle(cursorPos, {0.0f, 0.0f}, 40.0f, 0.25f, 0.0f, Colour::BLUE));
 
 }
 
@@ -153,7 +153,7 @@ CollisionInfo PhysicsScene::Sphere2Plane(PhysicsObject *A, PhysicsObject *B) {
             info.isColliding = true;
 
             const float distanceToPlane = Dot(CircleA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance();
-            (distanceToPlane > 0) ? info.collisionNormal = PlaneB->GetNormal() : info.collisionNormal = -1.0f * PlaneB->GetNormal();
+            info.collisionNormal = (distanceToPlane > 0) ? PlaneB->GetNormal() :-1.0f * PlaneB->GetNormal();
             info.penetrationDepth = CircleA->GetRadius() - abs(distanceToPlane);
             info.collisionPoint = CircleA->GetPosition() + CircleA->GetRadius() * info.collisionNormal;
         }
@@ -173,7 +173,7 @@ CollisionInfo PhysicsScene::Plane2Sphere(PhysicsObject *A, PhysicsObject *B) {
 
 		// Get normal direction
 		const float distanceToPlane = Dot(CircleB->GetPosition(), PlaneA->GetNormal()) - PlaneA->GetDistance();
-		(distanceToPlane > 0) ? info.collisionNormal = -1.0f * PlaneA->GetNormal() : info.collisionNormal = PlaneA->GetNormal();
+        info.collisionNormal = (distanceToPlane > 0) ? -1.0f * PlaneA->GetNormal() :PlaneA->GetNormal();
 		info.penetrationDepth = CircleB->GetRadius() - abs(distanceToPlane);
 		info.collisionPoint = CircleB->GetPosition() + CircleB->GetRadius() * info.collisionNormal;
 	}
@@ -436,7 +436,7 @@ CollisionInfo PhysicsScene::Box2Box(PhysicsObject *A, PhysicsObject *B) {
 //NOTE: Only handles linear cases right now
 void PhysicsScene::ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const CollisionInfo& info) {
     
-    float e = 0.5f;
+    float e = 0.9f;
     Vec2 rA = info.collisionPoint - A->GetPosition();
     Vec2 rB = info.collisionPoint - B->GetPosition();
     
