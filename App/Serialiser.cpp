@@ -64,7 +64,7 @@ void Serialiser::Load(PhysicsScene* sceneref, void* data)
 {
     char* dataconv = (char*)(data);
     json jsonconv = json::parse(dataconv);
-    delete data;
+    delete dataconv;
 }
 
 

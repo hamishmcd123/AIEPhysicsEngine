@@ -41,8 +41,6 @@ void PhysicsScene::Initialise()
 	PhysicsObject::lines = lines;
 	m_gravity = { 0, -9.81f };
 	AddActor(new Plane({ 0.0f, 1.0f }, 0.0f));
-	AddActor(new Plane({ -1.0f, 0.0f }, -3.0f));
-	AddActor(new Plane({ 1.0f, 0.0f }, -3.0f));
 	SetupImGUITheme();
 }
 
@@ -65,7 +63,7 @@ void PhysicsScene::Update(float delta)
 			for (int inner = outer + 1; inner < m_actors.size(); inner++) {
 				PhysicsObject* B = m_actors[inner];
 
-				//index = (A->m_ShapeID * N) + B
+				//NOTE: The index for the function pointer array is given by: (A->m_ShapeID * N) + B, where N is the number of shape types.
 				const int index = static_cast<int>(A->m_ShapeID) * 3 + static_cast<int>(B->m_ShapeID);
 				CollisionInfo info = CollisionFunctions[index](A, B);
 				if (info.isColliding) {
@@ -88,6 +86,9 @@ void PhysicsScene::AddActor(PhysicsObject* actor)
 
 void PhysicsScene::RemoveActor(PhysicsObject* actor)
 {
+
+    // NOTE: This could be simplified using smart pointers.
+    
 	auto it = std::remove_if(m_actors.begin(), m_actors.end(), [actor](PhysicsObject* a) {
 		if (a == actor) {
 			delete a;
@@ -101,6 +102,7 @@ void PhysicsScene::RemoveActor(PhysicsObject* actor)
 
 void PhysicsScene::OnLeftClick()
 {
+
 	switch (creatorInfo.shapetype) {
 	case ShapeType::PLANE:
 
@@ -127,6 +129,8 @@ void PhysicsScene::OnLeftClick()
 
 void PhysicsScene::ClearAllActor()
 {
+
+    // NOTE: This could be much simpler if I were using smart pointers for the actors.
 	auto it = std::remove_if(m_actors.begin(), m_actors.end(), [](PhysicsObject* a) {
 		delete a;
 		return true;
@@ -136,11 +140,13 @@ void PhysicsScene::ClearAllActor()
 }
 
 
-// WE ARE DOING B->A FOR NORMALS
+// NOTE: These collision functions return the collision normal from B to A. This is unconvential, and I only realised this when I had finished making the first half of these functions. 
+// This shouldn't cause any ununsual behaviour (the collision resolution function is consisent with this normal direction), but it is something to be aware of. 
 
 CollisionInfo PhysicsScene::Sphere2Plane(PhysicsObject* A, PhysicsObject* B) {
 
-	// NOTE: For circle-plane collisions, the collision normal will be either -1 * planeNormal or the planeNormal. 
+	// NOTE: For circle-plane collisions, the collision normal will be either -planeNormal or planeNormal. 
+
 	CollisionInfo info;
 	const Circle* CircleA = static_cast<Circle*>(A);
 	const Plane* PlaneB = static_cast<Plane*>(B);
@@ -159,7 +165,8 @@ CollisionInfo PhysicsScene::Sphere2Plane(PhysicsObject* A, PhysicsObject* B) {
 
 CollisionInfo PhysicsScene::Plane2Sphere(PhysicsObject* A, PhysicsObject* B) {
 
-	// NOTE: For circle-plane collisions, the collision normal will be either -1 * planeNormal or the planeNormal. 
+	// NOTE: For circle-plane collisions, the collision normal will be either -planeNormal or planeNormal. 
+
 	CollisionInfo info;
 	const Plane* PlaneA = static_cast<Plane*>(A);
 	const Circle* CircleB = static_cast<Circle*>(B);
@@ -185,7 +192,6 @@ CollisionInfo PhysicsScene::Sphere2Sphere(PhysicsObject* A, PhysicsObject* B) {
 	const Circle* CircleA = static_cast<Circle*>(A);
 	const Circle* CircleB = static_cast<Circle*>(B);
 
-	// TODO: Clean this up
 	if ((CircleA->GetPosition() - CircleB->GetPosition()).GetMagnitudeSquared() < (CircleA->GetRadius() + CircleB->GetRadius()) * (CircleA->GetRadius() + CircleB->GetRadius())) {
 		info.isColliding = true;
 		info.collisionNormal = (CircleA->GetPosition() - CircleB->GetPosition()).Normalise();
@@ -197,7 +203,6 @@ CollisionInfo PhysicsScene::Sphere2Sphere(PhysicsObject* A, PhysicsObject* B) {
 }
 
 CollisionInfo PhysicsScene::Plane2Plane(PhysicsObject* A, PhysicsObject* B) {
-	// don't do anything;
 	return CollisionInfo();
 }
 
@@ -215,8 +220,13 @@ CollisionInfo PhysicsScene::Box2Plane(PhysicsObject* A, PhysicsObject* B) {
 	if (abs(distance) <= r) {
 		info.isColliding = true;
 		info.penetrationDepth = r - abs(distance);
-		info.collisionNormal = -1.0f * PlaneB->GetNormal();
+		info.collisionNormal = distance > 0 ? PlaneB->GetNormal() : -1.0f * PlaneB->GetNormal();
+        
 
+        // NOTE: Find the corner with the lowest signed distance to the plane and use it as the collision point. 
+        // This is not the most sophisticated method, as with edge-to-plane collisions we should ideally get a collision manifold and average the points.
+        // However, this is beyond the scope of this project.
+       
 		const Vec2 vertices[4] = { BoxA->GetPosition() + BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() + BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
 								   BoxA->GetPosition() + BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() - BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
 								   BoxA->GetPosition() - BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() + BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
@@ -257,8 +267,12 @@ CollisionInfo PhysicsScene::Plane2Box(PhysicsObject* A, PhysicsObject* B) {
 	if (abs(distance) <= r) {
 		info.isColliding = true;
 		info.penetrationDepth = r - abs(distance);
-		info.collisionNormal = -1.0f * PlaneA->GetNormal();
+        info.collisionNormal = distance > 0 ? -1.0f * PlaneA->GetNormal() : PlaneA->GetNormal();
 
+        // NOTE: Find the corner with the lowest signed distance to the plane and use it as the collision point. 
+        // This is not the most sophisticated method, as with edge-to-plane collisions we should ideally get a collision manifold and average the points.
+        // However, this is beyond the scope of this project.
+	
 		const Vec2 vertices[4] = { BoxB->GetPosition() + BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() + BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
 								   BoxB->GetPosition() + BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() - BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
 								   BoxB->GetPosition() - BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() + BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
@@ -291,7 +305,7 @@ CollisionInfo PhysicsScene::Box2Sphere(PhysicsObject* A, PhysicsObject* B) {
 
 	BoxA->UpdateLocalAxes();
 
-	//NOTE: Transform the circle's position so that its in the OBB's local axes, where the OBB is centered at 0,0
+	//NOTE: Here we transform the Circle so that it is in OBB's local axes with the OBB centered at the origin.
 	const Vec2 RelativePos = CircleB->GetPosition() - BoxA->GetPosition();
 
 	Vec2 CirclePos;
@@ -321,6 +335,7 @@ CollisionInfo PhysicsScene::Sphere2Box(PhysicsObject* A, PhysicsObject* B) {
 	Box* BoxB = static_cast<Box*>(B);
 	const Circle* CircleA = static_cast<Circle*>(A);
 
+	//NOTE: Here we transform the Circle so that it is in OBB's local axes with the OBB centered at the origin.
 	BoxB->UpdateLocalAxes();
 	const Vec2 RelativePos = CircleA->GetPosition() - BoxB->GetPosition();
 
@@ -380,8 +395,10 @@ CollisionInfo PhysicsScene::Box2Box(PhysicsObject* A, PhysicsObject* B) {
 		}
 	}
 
-	// The idea here is to project all the vertices of the incident shape onto the separating axis. Then, take the one with the lowest value to
-	// be the collision point. A majority of collisions happen with corner to edge so this should be fine?
+	// NOTE: The idea here is to project all the vertices of the incident shape onto the separating axis. Then, take the one with the lowest value to
+	// be the collision point.
+    // Like with the Box2Plane collision, this is not the most sophisticated approach, as does not handle edge-to-edge collision nicely. Ideally we would get a collision manifold
+    // and average the points.
 
 	if (bestIndex == 1 || bestIndex == 2) {
 		// BoxA owns the best axis, so project BoxB vertices onto that.
@@ -434,7 +451,7 @@ CollisionInfo PhysicsScene::Box2Box(PhysicsObject* A, PhysicsObject* B) {
 
 void PhysicsScene::ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const CollisionInfo& info) {
 
-	float e = 0.9f;
+	float e = 0.7f;
 	Vec2 rA = info.collisionPoint - A->GetPosition();
 	Vec2 rB = info.collisionPoint - B->GetPosition();
 
@@ -536,10 +553,11 @@ void PhysicsScene::DisplayActor(PhysicsObject* Actor) {
 			ImGui::EndTable();
 			if (ImGui::Button("Delete Actor##")) {
 
-				// Making sure selected actor is not a dangling pointer.
+				// This ensures the selected actor is not a dangling pointer.
 				if (SelectedActor == Actor) {
 					SelectedActor = nullptr;
 				}
+
 				RemoveActor(Actor);
 			}
 			ImGui::TreePop();
@@ -598,7 +616,7 @@ void PhysicsScene::DrawObjectCreator()
 
 		ImGui::TableNextColumn(); ImGui::Text("Mass");
 		ImGui::TableNextColumn(); ImGui::InputFloat("##2", &creatorInfo.mass, 0.0f, 0.0f, "%.3f");
-		if (creatorInfo.mass <= 0.0f) creatorInfo.mass = 0.001f;
+		if (creatorInfo.mass <= 0.0f) creatorInfo.mass = 0.001f; // If the mass is set to 0, the inverse mass with be infinite and the velocity/acceleration witll explode.
 
 		ImGui::TableNextColumn(); ImGui::Text("Colour");
 		ImGui::TableNextColumn();
@@ -652,7 +670,7 @@ void SDLCALL PhysicsScene::OnLoadFileSelected(void* userdata, const char* const*
 		std::istreambuf_iterator<char>()
 	);
 
-	// Have to do this weird shit because this callback is asynchronous. 
+	//NOTE: Have to do this weird shit because this callback is asynchronous. 
 	char* data = new char[contents.length() + 1];
 	memcpy(data, contents.data(), contents.length());
 	data[contents.length()] = '\0';
