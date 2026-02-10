@@ -3,7 +3,6 @@
 #include "Colour.h"
 #include "RigidBody.h"
 #include "Vec2.h"
-#include "imgui.h"
 #include <SDL3/SDL_dialog.h>
 #include <algorithm>
 #include "PhysicsObject.h"
@@ -14,6 +13,8 @@
 #include <iostream>
 #include <string>
 #include <fstream>
+#include "imgui.h"
+#include "ImGuiStuff.hpp"
 
 PhysicsScene::PhysicsScene()
 {
@@ -39,61 +40,41 @@ void PhysicsScene::Initialise()
 
 	PhysicsObject::lines = lines;
 	m_gravity = { 0, -9.81f };
-    AddActor(new Plane({ 0.0f, 1.0f }, 0.0f));
-    SetUpImGUItheme();
+	AddActor(new Plane({ 0.0f, 1.0f }, 0.0f));
+	AddActor(new Plane({ -1.0f, 0.0f }, -3.0f));
+	AddActor(new Plane({ 1.0f, 0.0f }, -3.0f));
+	SetupImGUITheme();
 }
 
 void PhysicsScene::Update(float delta)
 {
-
-	ImGui::Begin("Scene Graph");
-    if (ImGui::TreeNode("Scene")) {
-            for (const auto actor : m_actors) {
-                DisplayActor(actor);
-            }
-            ImGui::TreePop();
-    }
-    ImGui::End();
-
-    ImGui::Begin("Debug Options");
-    ImGui::Checkbox("Show collision contact points", &m_debugShowContactPoints); 
-        if (ImGui::Button("Simulate!")) {
-            m_isPhysicsSimulating ^= 1;
-        }
-    if (ImGui::Button("Load Scene")) {
-        // this should be okay??
-		OpenLoadFileDialogue((void*)this);
-	}
-
-    if (ImGui::Button("Save Scene")) {
-            json savedata = serialiser.Save(m_actors);
-            OpenSaveFileDialogue(savedata);
-        }
-    ImGui::End();
-
 	//Everything that your program does every frame should go here.
 	//This includes rendering done with the line renderer!
-    
-    if (m_isPhysicsSimulating) {
-        for (PhysicsObject* actor : m_actors) {
-            actor->FixedUpdate(m_gravity, delta);
-        }
 
-        for (int outer = 0; outer < m_actors.size(); outer++) {
-                PhysicsObject* A = m_actors[outer];
-                for (int inner = outer + 1; inner <m_actors.size(); inner++) {
-                    PhysicsObject* B = m_actors[inner];
+	DrawSceneGraph();
+	DrawDebugOptions();
+	DrawObjectCreator();
 
-                    //index = (A->m_ShapeID * N) + B
-                    const int index = static_cast<int>(A->m_ShapeID) * 3 + static_cast<int>(B->m_ShapeID);
-                    CollisionInfo info = CollisionFunctions[index](A, B);
-                    if (info.isColliding) {
-                        ResolveCollisions(A, B, info);
-                    }
-            }
-        }
-    }
-	
+	if (m_isPhysicsSimulating) {
+		for (PhysicsObject* actor : m_actors) {
+			actor->FixedUpdate(m_gravity, delta);
+		}
+
+		for (int outer = 0; outer < m_actors.size(); outer++) {
+			PhysicsObject* A = m_actors[outer];
+			for (int inner = outer + 1; inner < m_actors.size(); inner++) {
+				PhysicsObject* B = m_actors[inner];
+
+				//index = (A->m_ShapeID * N) + B
+				const int index = static_cast<int>(A->m_ShapeID) * 3 + static_cast<int>(B->m_ShapeID);
+				CollisionInfo info = CollisionFunctions[index](A, B);
+				if (info.isColliding) {
+					ResolveCollisions(A, B, info);
+				}
+			}
+		}
+	}
+
 	// TODO: Move this to rendering()? Only problem is that we would have to do temporal anti-aliasing.
 	for (PhysicsObject* actor : m_actors) {
 		actor->Draw();
@@ -107,73 +88,88 @@ void PhysicsScene::AddActor(PhysicsObject* actor)
 
 void PhysicsScene::RemoveActor(PhysicsObject* actor)
 {
-    auto it = std::remove_if(m_actors.begin(), m_actors.end(), [actor](PhysicsObject* a){
-            if (a == actor) {
-                delete a;
-                return true;
-            }
-            return false;
-        });
+	auto it = std::remove_if(m_actors.begin(), m_actors.end(), [actor](PhysicsObject* a) {
+		if (a == actor) {
+			delete a;
+			return true;
+		}
+		return false;
+		});
 
-    m_actors.erase(it, m_actors.end());
+	m_actors.erase(it, m_actors.end());
 }
 
 void PhysicsScene::OnLeftClick()
 {
-    AddActor(new Circle(cursorPos, {0.0f, 0.0f}, 400.0f, 0.25f, 0.0f, Colour::BLUE));
+	switch (creatorInfo.shapetype) {
+	case ShapeType::PLANE:
 
+		break;
+	case ShapeType::BOX:
+		AddActor(new Box(
+			cursorPos,
+			creatorInfo.velocity,
+			creatorInfo.mass,
+			creatorInfo.halfwidth,
+			creatorInfo.halfheight,
+			creatorInfo.orientation,
+			creatorInfo.colour
+		));
+		break;
+
+	case ShapeType::CIRCLE:
+
+		break;
+
+	}
 }
 
 
-void PhysicsScene::OnRightClick() {
-    AddActor(new Box(cursorPos, {0.0f, 0.0f}, 4.0f, 0.25f, 0.25f, 0.0f, Colour::RED));
-    }
-
 void PhysicsScene::ClearAllActor()
 {
-    auto it = std::remove_if(m_actors.begin(), m_actors.end(), [](PhysicsObject* a) {
-        delete a;
-        return true;
-    });
+	auto it = std::remove_if(m_actors.begin(), m_actors.end(), [](PhysicsObject* a) {
+		delete a;
+		return true;
+		});
 
-    m_actors.erase(it, m_actors.end());
+	m_actors.erase(it, m_actors.end());
 }
 
 
 // WE ARE DOING B->A FOR NORMALS
 
-CollisionInfo PhysicsScene::Sphere2Plane(PhysicsObject *A, PhysicsObject *B) {
+CollisionInfo PhysicsScene::Sphere2Plane(PhysicsObject* A, PhysicsObject* B) {
 
-    // NOTE: For circle-plane collisions, the collision normal will be either -1 * planeNormal or the planeNormal. 
-        CollisionInfo info;
-        const Circle* CircleA = static_cast<Circle*>(A);
-        const Plane* PlaneB = static_cast<Plane*>(B);
+	// NOTE: For circle-plane collisions, the collision normal will be either -1 * planeNormal or the planeNormal. 
+	CollisionInfo info;
+	const Circle* CircleA = static_cast<Circle*>(A);
+	const Plane* PlaneB = static_cast<Plane*>(B);
 
-        if (abs(Dot(CircleA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance()) <= CircleA->GetRadius())  {
-            info.isColliding = true;
+	if (abs(Dot(CircleA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance()) <= CircleA->GetRadius()) {
+		info.isColliding = true;
 
-            const float distanceToPlane = Dot(CircleA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance();
-            info.collisionNormal = (distanceToPlane > 0) ? PlaneB->GetNormal() :-1.0f * PlaneB->GetNormal();
-            info.penetrationDepth = CircleA->GetRadius() - abs(distanceToPlane);
-            info.collisionPoint = CircleA->GetPosition() + CircleA->GetRadius() * info.collisionNormal;
-        }
-    return info;
+		const float distanceToPlane = Dot(CircleA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance();
+		info.collisionNormal = (distanceToPlane > 0) ? PlaneB->GetNormal() : -1.0f * PlaneB->GetNormal();
+		info.penetrationDepth = CircleA->GetRadius() - abs(distanceToPlane);
+		info.collisionPoint = CircleA->GetPosition() + CircleA->GetRadius() * info.collisionNormal;
+	}
+	return info;
 
 }
 
-CollisionInfo PhysicsScene::Plane2Sphere(PhysicsObject *A, PhysicsObject *B) {
+CollisionInfo PhysicsScene::Plane2Sphere(PhysicsObject* A, PhysicsObject* B) {
 
-    // NOTE: For circle-plane collisions, the collision normal will be either -1 * planeNormal or the planeNormal. 
+	// NOTE: For circle-plane collisions, the collision normal will be either -1 * planeNormal or the planeNormal. 
 	CollisionInfo info;
 	const Plane* PlaneA = static_cast<Plane*>(A);
 	const Circle* CircleB = static_cast<Circle*>(B);
-	
-	if (abs(Dot(CircleB->GetPosition(), PlaneA->GetNormal()) - PlaneA->GetDistance()) <= CircleB->GetRadius())  {
+
+	if (abs(Dot(CircleB->GetPosition(), PlaneA->GetNormal()) - PlaneA->GetDistance()) <= CircleB->GetRadius()) {
 		info.isColliding = true;
 
 		// Get normal direction
 		const float distanceToPlane = Dot(CircleB->GetPosition(), PlaneA->GetNormal()) - PlaneA->GetDistance();
-        info.collisionNormal = (distanceToPlane > 0) ? -1.0f * PlaneA->GetNormal() :PlaneA->GetNormal();
+		info.collisionNormal = (distanceToPlane > 0) ? -1.0f * PlaneA->GetNormal() : PlaneA->GetNormal();
 		info.penetrationDepth = CircleB->GetRadius() - abs(distanceToPlane);
 		info.collisionPoint = CircleB->GetPosition() + CircleB->GetRadius() * info.collisionNormal;
 	}
@@ -182,543 +178,552 @@ CollisionInfo PhysicsScene::Plane2Sphere(PhysicsObject *A, PhysicsObject *B) {
 }
 
 
-CollisionInfo PhysicsScene::Sphere2Sphere(PhysicsObject *A, PhysicsObject *B) {
+CollisionInfo PhysicsScene::Sphere2Sphere(PhysicsObject* A, PhysicsObject* B) {
 
-    CollisionInfo info;
+	CollisionInfo info;
 
-    const Circle* CircleA = static_cast<Circle*>(A);
-    const Circle* CircleB = static_cast<Circle*>(B);
+	const Circle* CircleA = static_cast<Circle*>(A);
+	const Circle* CircleB = static_cast<Circle*>(B);
 
-    // TODO: Clean this up
-    if ((CircleA->GetPosition() - CircleB->GetPosition()).GetMagnitudeSquared() < (CircleA->GetRadius() + CircleB->GetRadius()) * (CircleA->GetRadius() + CircleB->GetRadius())) {
-        info.isColliding = true;
-        info.collisionNormal = (CircleA->GetPosition() - CircleB->GetPosition()).Normalise();
-        info.penetrationDepth = (CircleA->GetRadius() + CircleB->GetRadius()) - (CircleA->GetPosition() - CircleB->GetPosition()).GetMagnitude();
-        info.collisionPoint = CircleB->GetPosition() + CircleB->GetRadius() * info.collisionNormal;
-    }
+	// TODO: Clean this up
+	if ((CircleA->GetPosition() - CircleB->GetPosition()).GetMagnitudeSquared() < (CircleA->GetRadius() + CircleB->GetRadius()) * (CircleA->GetRadius() + CircleB->GetRadius())) {
+		info.isColliding = true;
+		info.collisionNormal = (CircleA->GetPosition() - CircleB->GetPosition()).Normalise();
+		info.penetrationDepth = (CircleA->GetRadius() + CircleB->GetRadius()) - (CircleA->GetPosition() - CircleB->GetPosition()).GetMagnitude();
+		info.collisionPoint = CircleB->GetPosition() + CircleB->GetRadius() * info.collisionNormal;
+	}
 
-    return info;
+	return info;
 }
 
-CollisionInfo PhysicsScene::Plane2Plane(PhysicsObject *A, PhysicsObject *B) {
-    // don't do anything;
-    return CollisionInfo();
+CollisionInfo PhysicsScene::Plane2Plane(PhysicsObject* A, PhysicsObject* B) {
+	// don't do anything;
+	return CollisionInfo();
 }
 
 CollisionInfo PhysicsScene::Box2Plane(PhysicsObject* A, PhysicsObject* B) {
 
-    CollisionInfo info;
-    Box* BoxA = static_cast<Box*>(A);
-    const Plane* PlaneB = static_cast<Plane*>(B);
+	CollisionInfo info;
+	Box* BoxA = static_cast<Box*>(A);
+	const Plane* PlaneB = static_cast<Plane*>(B);
 
-    BoxA->UpdateLocalAxes();
+	BoxA->UpdateLocalAxes();
 
-    const float distance = Dot(BoxA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance();
-    const float r = BoxA->GetHalfWidth() * abs(Dot(BoxA->GetLocalXAxis(), PlaneB->GetNormal())) + BoxA->GetHalfHeight() * abs(Dot(BoxA->GetLocalYAxis(), PlaneB->GetNormal()));
+	const float distance = Dot(BoxA->GetPosition(), PlaneB->GetNormal()) - PlaneB->GetDistance();
+	const float r = BoxA->GetHalfWidth() * abs(Dot(BoxA->GetLocalXAxis(), PlaneB->GetNormal())) + BoxA->GetHalfHeight() * abs(Dot(BoxA->GetLocalYAxis(), PlaneB->GetNormal()));
 
-    if (abs(distance) <= r) {
-        info.isColliding = true;
-        info.penetrationDepth = r - abs(distance);
-        info.collisionNormal = -1.0f * PlaneB->GetNormal();
+	if (abs(distance) <= r) {
+		info.isColliding = true;
+		info.penetrationDepth = r - abs(distance);
+		info.collisionNormal = -1.0f * PlaneB->GetNormal();
 
-        const Vec2 vertices[4] = { BoxA->GetPosition() + BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() + BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
+		const Vec2 vertices[4] = { BoxA->GetPosition() + BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() + BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
 								   BoxA->GetPosition() + BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() - BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
-                                   BoxA->GetPosition() - BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() + BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
-                                   BoxA->GetPosition() - BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() - BoxA->GetLocalYAxis() * BoxA->GetHalfHeight()
-									};
+								   BoxA->GetPosition() - BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() + BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
+								   BoxA->GetPosition() - BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() - BoxA->GetLocalYAxis() * BoxA->GetHalfHeight()
+		};
 
-        float lowest = FLT_MAX;
-        Vec2 bestVertex;
-        
-        for (int i = 0; i < 4; i++) {
-            float currentDistance = Dot(vertices[i], PlaneB->GetNormal()) - PlaneB->GetDistance();
-            if (currentDistance < lowest) {
+		float lowest = FLT_MAX;
+		Vec2 bestVertex;
 
-                lowest = currentDistance;
-                bestVertex = vertices[i];
-            }
-            else {
-                continue;
-            }
-        
-            info.collisionPoint = bestVertex;
-        }
-    };
-    return info;
+		for (int i = 0; i < 4; i++) {
+			float currentDistance = Dot(vertices[i], PlaneB->GetNormal()) - PlaneB->GetDistance();
+			if (currentDistance < lowest) {
+
+				lowest = currentDistance;
+				bestVertex = vertices[i];
+			}
+			else {
+				continue;
+			}
+
+			info.collisionPoint = bestVertex;
+		}
+	};
+	return info;
 
 }
 
-CollisionInfo PhysicsScene::Plane2Box(PhysicsObject *A, PhysicsObject *B) {
-    CollisionInfo info;
-    Box* BoxB = static_cast<Box*>(B);
-    const Plane* PlaneA = static_cast<Plane*>(A);
+CollisionInfo PhysicsScene::Plane2Box(PhysicsObject* A, PhysicsObject* B) {
+	CollisionInfo info;
+	Box* BoxB = static_cast<Box*>(B);
+	const Plane* PlaneA = static_cast<Plane*>(A);
 
-    BoxB->UpdateLocalAxes();
+	BoxB->UpdateLocalAxes();
 
 	const float distance = Dot(BoxB->GetPosition(), PlaneA->GetNormal()) - PlaneA->GetDistance();
 	const float r = BoxB->GetHalfWidth() * abs(Dot(BoxB->GetLocalXAxis(), PlaneA->GetNormal())) + BoxB->GetHalfHeight() * abs(Dot(BoxB->GetLocalYAxis(), PlaneA->GetNormal()));
-        
+
 	if (abs(distance) <= r) {
 		info.isColliding = true;
 		info.penetrationDepth = r - abs(distance);
 		info.collisionNormal = -1.0f * PlaneA->GetNormal();
-		
-        const Vec2 vertices[4] = { BoxB->GetPosition() + BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() + BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
+
+		const Vec2 vertices[4] = { BoxB->GetPosition() + BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() + BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
 								   BoxB->GetPosition() + BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() - BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
-                                   BoxB->GetPosition() - BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() + BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
-                                   BoxB->GetPosition() - BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() - BoxB->GetLocalYAxis() * BoxB->GetHalfHeight()
-									};
+								   BoxB->GetPosition() - BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() + BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
+								   BoxB->GetPosition() - BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() - BoxB->GetLocalYAxis() * BoxB->GetHalfHeight()
+		};
 
-        float lowest = FLT_MAX;
-        Vec2 bestVertex;
-        
-        for (int i = 0; i < 4; i++) {
-            float currentDistance = Dot(vertices[i], PlaneA->GetNormal()) - PlaneA->GetDistance();
-            if (currentDistance < lowest) {
-                lowest = currentDistance;
-                bestVertex = vertices[i];
-            }
-            else {
-                continue;
-            }
-        
-            info.collisionPoint = bestVertex;
-        }
+		float lowest = FLT_MAX;
+		Vec2 bestVertex;
+
+		for (int i = 0; i < 4; i++) {
+			float currentDistance = Dot(vertices[i], PlaneA->GetNormal()) - PlaneA->GetDistance();
+			if (currentDistance < lowest) {
+				lowest = currentDistance;
+				bestVertex = vertices[i];
+			}
+			else {
+				continue;
+			}
+
+			info.collisionPoint = bestVertex;
+		}
 	}
-    return info;
+	return info;
 }
 
-CollisionInfo PhysicsScene::Box2Sphere(PhysicsObject *A, PhysicsObject *B) {
-    CollisionInfo info;
-    Box* BoxA = static_cast<Box*>(A);
-    const Circle* CircleB = static_cast<Circle*>(B);
-    
-    BoxA->UpdateLocalAxes();
+CollisionInfo PhysicsScene::Box2Sphere(PhysicsObject* A, PhysicsObject* B) {
+	CollisionInfo info;
+	Box* BoxA = static_cast<Box*>(A);
+	const Circle* CircleB = static_cast<Circle*>(B);
 
-    //NOTE: Transform the circle's position so that its in the OBB's local axes, where the OBB is centered at 0,0
-    const Vec2 RelativePos = CircleB->GetPosition() - BoxA->GetPosition();
+	BoxA->UpdateLocalAxes();
 
-    Vec2 CirclePos;
+	//NOTE: Transform the circle's position so that its in the OBB's local axes, where the OBB is centered at 0,0
+	const Vec2 RelativePos = CircleB->GetPosition() - BoxA->GetPosition();
 
-    CirclePos.x = Dot(RelativePos, BoxA->GetLocalXAxis());
-    CirclePos.y = Dot(RelativePos, BoxA->GetLocalYAxis());
+	Vec2 CirclePos;
 
-    // Get position on box that is closet to circle.
-    const Vec2 closest = {Clamp<float>(CirclePos.x, -BoxA->GetHalfWidth(),BoxA->GetHalfWidth()),
-    Clamp<float>(CirclePos.y,-BoxA->GetHalfHeight(),BoxA->GetHalfHeight())};
+	CirclePos.x = Dot(RelativePos, BoxA->GetLocalXAxis());
+	CirclePos.y = Dot(RelativePos, BoxA->GetLocalYAxis());
 
-    const float distance = (closest - CirclePos).GetMagnitude();
-    
-    if (distance <= CircleB->GetRadius()) {
-        info.isColliding = true;
-        info.penetrationDepth = CircleB->GetRadius() - distance;
-        const Vec2 collisionNormalLocal = (closest - CirclePos).Normalise();
-        info.collisionNormal = (BoxA->GetLocalXAxis() * collisionNormalLocal.x) + (BoxA->GetLocalYAxis() * collisionNormalLocal.y);
-        info.collisionPoint = (CircleB->GetPosition() + CircleB->GetRadius() * info.collisionNormal);
-    }
-    return info;
+	// Get position on box that is closet to circle.
+	const Vec2 closest = { Clamp<float>(CirclePos.x, -BoxA->GetHalfWidth(),BoxA->GetHalfWidth()),
+	Clamp<float>(CirclePos.y,-BoxA->GetHalfHeight(),BoxA->GetHalfHeight()) };
+
+	const float distance = (closest - CirclePos).GetMagnitude();
+
+	if (distance <= CircleB->GetRadius()) {
+		info.isColliding = true;
+		info.penetrationDepth = CircleB->GetRadius() - distance;
+		const Vec2 collisionNormalLocal = (closest - CirclePos).Normalise();
+		info.collisionNormal = (BoxA->GetLocalXAxis() * collisionNormalLocal.x) + (BoxA->GetLocalYAxis() * collisionNormalLocal.y);
+		info.collisionPoint = (CircleB->GetPosition() + CircleB->GetRadius() * info.collisionNormal);
+	}
+	return info;
 }
 
-CollisionInfo PhysicsScene::Sphere2Box(PhysicsObject* A, PhysicsObject *B) {
+CollisionInfo PhysicsScene::Sphere2Box(PhysicsObject* A, PhysicsObject* B) {
 
-    CollisionInfo info;
-    Box* BoxB = static_cast<Box*>(B);
-    const Circle* CircleA = static_cast<Circle*>(A);
+	CollisionInfo info;
+	Box* BoxB = static_cast<Box*>(B);
+	const Circle* CircleA = static_cast<Circle*>(A);
 
-    BoxB->UpdateLocalAxes();
-    const Vec2 RelativePos = CircleA->GetPosition() - BoxB->GetPosition();
+	BoxB->UpdateLocalAxes();
+	const Vec2 RelativePos = CircleA->GetPosition() - BoxB->GetPosition();
 
-    Vec2 CirclePos;
+	Vec2 CirclePos;
 
-    CirclePos.x = Dot(RelativePos, BoxB->GetLocalXAxis());
-    CirclePos.y = Dot(RelativePos, BoxB->GetLocalYAxis());
+	CirclePos.x = Dot(RelativePos, BoxB->GetLocalXAxis());
+	CirclePos.y = Dot(RelativePos, BoxB->GetLocalYAxis());
 
-    // Get position on box that is closet to circle.
-    const Vec2 closest = {Clamp<float>(CirclePos.x, -BoxB->GetHalfWidth(),BoxB->GetHalfWidth()),
-    Clamp<float>(CirclePos.y,-BoxB->GetHalfHeight(),BoxB->GetHalfHeight())};
+	// Get position on box that is closet to circle.
+	const Vec2 closest = { Clamp<float>(CirclePos.x, -BoxB->GetHalfWidth(),BoxB->GetHalfWidth()),
+	Clamp<float>(CirclePos.y,-BoxB->GetHalfHeight(),BoxB->GetHalfHeight()) };
 
-    const float distance = (closest - CirclePos).GetMagnitude();
-    
-    if (distance <= CircleA->GetRadius()) {
-        info.isColliding = true;
-        info.penetrationDepth = CircleA->GetRadius() - distance;
-        const Vec2 collisionNormalLocal = (CirclePos - closest).Normalise();
-        info.collisionNormal = (BoxB->GetLocalXAxis() * collisionNormalLocal.x) + (BoxB->GetLocalYAxis() * collisionNormalLocal.y);
-        info.collisionPoint = (CircleA->GetPosition() - CircleA->GetRadius() * info.collisionNormal);
-    }
-        return info;
+	const float distance = (closest - CirclePos).GetMagnitude();
+
+	if (distance <= CircleA->GetRadius()) {
+		info.isColliding = true;
+		info.penetrationDepth = CircleA->GetRadius() - distance;
+		const Vec2 collisionNormalLocal = (CirclePos - closest).Normalise();
+		info.collisionNormal = (BoxB->GetLocalXAxis() * collisionNormalLocal.x) + (BoxB->GetLocalYAxis() * collisionNormalLocal.y);
+		info.collisionPoint = (CircleA->GetPosition() - CircleA->GetRadius() * info.collisionNormal);
+	}
+	return info;
 }
 
-CollisionInfo PhysicsScene::Box2Box(PhysicsObject *A, PhysicsObject *B) {
+CollisionInfo PhysicsScene::Box2Box(PhysicsObject* A, PhysicsObject* B) {
 
-    CollisionInfo info;
-    Box* BoxA = static_cast<Box*>(A);
-    Box* BoxB = static_cast<Box*>(B);
+	CollisionInfo info;
+	Box* BoxA = static_cast<Box*>(A);
+	Box* BoxB = static_cast<Box*>(B);
 
-   // Update local axes
-    BoxA->UpdateLocalAxes();
-    BoxB->UpdateLocalAxes();
+	// Update local axes
+	BoxA->UpdateLocalAxes();
+	BoxB->UpdateLocalAxes();
 
-   // SAT
-    Vec2 axes[4] = {BoxA->GetLocalXAxis(), BoxA->GetLocalYAxis(), BoxB->GetLocalXAxis(), BoxB->GetLocalYAxis()};
-    Vec2 bestAxis;
-    float minOverlap = FLT_MAX; 
-    int bestIndex;
+	// SAT
+	Vec2 axes[4] = { BoxA->GetLocalXAxis(), BoxA->GetLocalYAxis(), BoxB->GetLocalXAxis(), BoxB->GetLocalYAxis() };
+	Vec2 bestAxis;
+	float minOverlap = FLT_MAX;
+	int bestIndex;
 
-    for (int index = 0; index < 4; index++) {
-        
-        Vec2 axis = axes[index];
-        const float dist = Dot(BoxA->GetPosition() - BoxB->GetPosition(), axis);
-        const float rA = abs(Dot(BoxA->GetLocalXAxis() * BoxA->GetHalfWidth(), axis)) + abs(Dot(BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(), axis));
-        const float rB = abs(Dot(BoxB->GetLocalXAxis() * BoxB->GetHalfWidth(), axis)) + abs(Dot(BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(), axis));
+	for (int index = 0; index < 4; index++) {
 
-        const float overlap = (rA + rB) - abs(dist);
+		Vec2 axis = axes[index];
+		const float dist = Dot(BoxA->GetPosition() - BoxB->GetPosition(), axis);
+		const float rA = abs(Dot(BoxA->GetLocalXAxis() * BoxA->GetHalfWidth(), axis)) + abs(Dot(BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(), axis));
+		const float rB = abs(Dot(BoxB->GetLocalXAxis() * BoxB->GetHalfWidth(), axis)) + abs(Dot(BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(), axis));
 
-        // Separating axis found
-        if (overlap <= 0) return info;
+		const float overlap = (rA + rB) - abs(dist);
 
-        if (overlap < minOverlap) {
-            minOverlap = overlap;
-            bestAxis = (dist > 0) ? axis  : -1.0f * axis;
-            bestIndex = index;
-        }
-    }
+		// Separating axis found
+		if (overlap <= 0) return info;
 
-    // The idea here is to project all the vertices of the incident shape onto the separating axis. Then, take the one with the lowest value to
-    // be the collision point. A majority of collisions happen with corner to edge so this should be fine?
-    
-    if (bestIndex == 1 || bestIndex == 2) {
-	// BoxA owns the best axis, so project BoxB vertices onto that.
-        float lowestProj = FLT_MAX;
-        Vec2 bestVertex;
+		if (overlap < minOverlap) {
+			minOverlap = overlap;
+			bestAxis = (dist > 0) ? axis : -1.0f * axis;
+			bestIndex = index;
+		}
+	}
 
-        Vec2 vertices[4] = {
-            BoxB->GetPosition() + BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() + BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
-            BoxB->GetPosition() + BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() - BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
-            BoxB->GetPosition() - BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() + BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
-            BoxB->GetPosition() - BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() - BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
-        };
+	// The idea here is to project all the vertices of the incident shape onto the separating axis. Then, take the one with the lowest value to
+	// be the collision point. A majority of collisions happen with corner to edge so this should be fine?
 
-        for (int i = 0; i < 4; i++) {
-          float thisProj = Dot(vertices[i], -1.0f * bestAxis);
-          if (thisProj < lowestProj) {
-              lowestProj = thisProj;
-              bestVertex = vertices[i];
-          }
-        }
-        info.collisionPoint = bestVertex;
-    }
+	if (bestIndex == 1 || bestIndex == 2) {
+		// BoxA owns the best axis, so project BoxB vertices onto that.
+		float lowestProj = FLT_MAX;
+		Vec2 bestVertex;
 
-    else {
-	float lowestProj = FLT_MAX;
-	Vec2 bestVertex;
-    // BoxB owns the best axis, so project BoxA vertices onto that.
-	Vec2 vertices[4] = {
-            BoxA->GetPosition() + BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() + BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
-            BoxA->GetPosition() + BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() - BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
-            BoxA->GetPosition() - BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() + BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
-            BoxA->GetPosition() - BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() - BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
-        };
+		Vec2 vertices[4] = {
+			BoxB->GetPosition() + BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() + BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
+			BoxB->GetPosition() + BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() - BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
+			BoxB->GetPosition() - BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() + BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
+			BoxB->GetPosition() - BoxB->GetLocalXAxis() * BoxB->GetHalfWidth() - BoxB->GetLocalYAxis() * BoxB->GetHalfHeight(),
+		};
 
-        // horrible, change later...
-        for (int i = 0; i < 4; i++) {
-          float thisProj = Dot(vertices[i], bestAxis);
-		  if (thisProj < lowestProj) {
-			  lowestProj = thisProj;
-              bestVertex = vertices[i];
-          }
-        }
-        info.collisionPoint = bestVertex;
-    }
-    info.isColliding = true;
-    info.penetrationDepth = minOverlap;
-    info.collisionNormal = bestAxis;
-    return info;
+		for (int i = 0; i < 4; i++) {
+			float thisProj = Dot(vertices[i], -1.0f * bestAxis);
+			if (thisProj < lowestProj) {
+				lowestProj = thisProj;
+				bestVertex = vertices[i];
+			}
+		}
+		info.collisionPoint = bestVertex;
+	}
+
+	else {
+		float lowestProj = FLT_MAX;
+		Vec2 bestVertex;
+		// BoxB owns the best axis, so project BoxA vertices onto that.
+		Vec2 vertices[4] = {
+				BoxA->GetPosition() + BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() + BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
+				BoxA->GetPosition() + BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() - BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
+				BoxA->GetPosition() - BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() + BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
+				BoxA->GetPosition() - BoxA->GetLocalXAxis() * BoxA->GetHalfWidth() - BoxA->GetLocalYAxis() * BoxA->GetHalfHeight(),
+		};
+
+		for (int i = 0; i < 4; i++) {
+			float thisProj = Dot(vertices[i], bestAxis);
+			if (thisProj < lowestProj) {
+				lowestProj = thisProj;
+				bestVertex = vertices[i];
+			}
+		}
+		info.collisionPoint = bestVertex;
+	}
+	info.isColliding = true;
+	info.penetrationDepth = minOverlap;
+	info.collisionNormal = bestAxis;
+	return info;
 }
 
 
 void PhysicsScene::ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const CollisionInfo& info) {
-    
-    float e = 0.4f;
-    Vec2 rA = info.collisionPoint - A->GetPosition();
-    Vec2 rB = info.collisionPoint - B->GetPosition();
-    
-    float rACrossN = PseudoCross(rA, info.collisionNormal);
-    float rBCrossN = PseudoCross(rB, info.collisionNormal);
 
-    Vec2 relativeVelocity = (A->GetVelocity() + PseudoCross(rA, A->GetAngularVelocity()))
-							-(B->GetVelocity() + PseudoCross(rB, B->GetAngularVelocity()));
+	float e = 0.9f;
+	Vec2 rA = info.collisionPoint - A->GetPosition();
+	Vec2 rB = info.collisionPoint - B->GetPosition();
 
-    if (Dot(relativeVelocity, info.collisionNormal) < 0) {
-        if (m_debugShowContactPoints) lines->DrawCircle(info.collisionPoint, 0.05f, Colour::RED);
-        float impulseMagnitude = -(1+ e) * (Dot(relativeVelocity, info.collisionNormal)) /
-		(A->GetInverseMass() + B->GetInverseMass() + (rACrossN * rACrossN) * A->GetInverseMoment() + (rBCrossN * rBCrossN) * B->GetInverseMoment());
-        A->ApplyImpulse(impulseMagnitude * info.collisionNormal, info.collisionPoint);
-        B->ApplyImpulse(-1.0f * impulseMagnitude * info.collisionNormal, info.collisionPoint);
-    }
+	float rACrossN = PseudoCross(rA, info.collisionNormal);
+	float rBCrossN = PseudoCross(rB, info.collisionNormal);
 
-    const float totalInverseMass = A->GetInverseMass() + B->GetInverseMass();
-    if (totalInverseMass > 0.0f) { const Vec2 correction = (info.penetrationDepth / totalInverseMass) * info.collisionNormal;
-        A->SetPosition( A->GetPosition() + A->GetInverseMass() * correction );
-        B->SetPosition( B->GetPosition() - B->GetInverseMass() * correction );
-    }
+	Vec2 relativeVelocity = (A->GetVelocity() + PseudoCross(rA, A->GetAngularVelocity()))
+		- (B->GetVelocity() + PseudoCross(rB, B->GetAngularVelocity()));
+
+	if (Dot(relativeVelocity, info.collisionNormal) < 0) {
+		if (m_debugShowContactPoints) lines->DrawCircle(info.collisionPoint, 0.05f, Colour::RED);
+		float impulseMagnitude = -(1 + e) * (Dot(relativeVelocity, info.collisionNormal)) /
+			(A->GetInverseMass() + B->GetInverseMass() + (rACrossN * rACrossN) * A->GetInverseMoment() + (rBCrossN * rBCrossN) * B->GetInverseMoment());
+		A->ApplyImpulse(impulseMagnitude * info.collisionNormal, info.collisionPoint);
+		B->ApplyImpulse(-1.0f * impulseMagnitude * info.collisionNormal, info.collisionPoint);
+	}
+
+	const float totalInverseMass = A->GetInverseMass() + B->GetInverseMass();
+	if (totalInverseMass > 0.0f) {
+		const Vec2 correction = (info.penetrationDepth / totalInverseMass) * info.collisionNormal;
+		A->SetPosition(A->GetPosition() + A->GetInverseMass() * correction);
+		B->SetPosition(B->GetPosition() - B->GetInverseMass() * correction);
+	}
 
 }
+
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 void PhysicsScene::DisplayActor(PhysicsObject* Actor) {
-    static RigidBody* SelectedActor = nullptr;
-    static Colour SelectedActorPrevColour; 
-    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow;
+	static RigidBody* SelectedActor = nullptr;
+	static Colour SelectedActorPrevColour;
+	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow;
 
-    if (RigidBody* CastedActor = dynamic_cast<RigidBody*>(Actor)) {
+	if (RigidBody* CastedActor = dynamic_cast<RigidBody*>(Actor)) {
 
-        if (SelectedActor == CastedActor) {
-            flags |= ImGuiTreeNodeFlags_Selected;
-        }
+		if (SelectedActor == CastedActor) {
+			flags |= ImGuiTreeNodeFlags_Selected;
+		}
 
-        ImGui::PushID(Actor);
-        bool isOpen = ImGui::TreeNodeEx("PhysicsActor", flags);
+		ImGui::PushID(Actor);
+		bool isOpen = ImGui::TreeNodeEx("PhysicsActor", flags);
 
-        if (ImGui::IsItemClicked()) {
+		if (ImGui::IsItemClicked()) {
 
-            // If there is already a selected actor, change its colour to the stored colour to restore it.
-            if (SelectedActor) {
-                SelectedActor->SetColour(SelectedActorPrevColour);
-            }
-            
-            // If the selected actor is this actor (and we click on it again), unselect it.
-            if (SelectedActor == CastedActor){
-                SelectedActor = nullptr;
-            }
-            
-            // If the selected actor is not the selected actor, change the selected actor to this one and change its colour to green.
-            else {
-                SelectedActor = CastedActor;
-                SelectedActorPrevColour = CastedActor->GetColour();
-                SelectedActor->SetColour(Colour::GREEN);
-            }
+			// If there is already a selected actor, change its colour to the stored colour to restore it.
+			if (SelectedActor) {
+				SelectedActor->SetColour(SelectedActorPrevColour);
+			}
 
-       }
+			// If the selected actor is this actor (and we click on it again), unselect it.
+			if (SelectedActor == CastedActor) {
+				SelectedActor = nullptr;
+			}
 
-        if (isOpen) {
-            if(ImGui::BeginTable("Properties", 2,ImGuiTableFlags_SizingStretchProp)) {
+			// If the selected actor is not the selected actor, change the selected actor to this one and change its colour to green.
+			else {
+				SelectedActor = CastedActor;
+				SelectedActorPrevColour = CastedActor->GetColour();
+				SelectedActor->SetColour(Colour::GREEN);
+			}
 
-                    ImGui::TableNextRow();
-                    ImGui::TableNextColumn(); ImGui::Text("Shape Type");
+		}
 
-                    ImGui::TableNextColumn();
-                    switch(CastedActor->m_ShapeID) {
-                        case ShapeType::BOX:
-                            ImGui::Text("Box");
-                            break;
-                        case ShapeType::CIRCLE:
-                            ImGui::Text("Circle");
-                            break;
-                        default:
-                            ImGui::Text("Unknown");
-                    }
-                    
-                        ImGui::TableNextRow();
-                        ImGui::TableNextColumn(); ImGui::Text("Position");  
-                        ImGui::TableNextColumn(); ImGui::Text("(%.2f, %.2f)", CastedActor->GetPosition().x, CastedActor->GetPosition().y);
+		if (isOpen) {
+			if (ImGui::BeginTable("Properties", 2, ImGuiTableFlags_SizingStretchProp)) {
 
-                        ImGui::TableNextRow();
-                        ImGui::TableNextColumn(); ImGui::Text("Orientation");
-                        ImGui::TableNextColumn(); ImGui::Text("%.2f", CastedActor->GetOrientation());
-                        
-                        ImGui::TableNextRow();
-                        ImGui::TableNextColumn(); ImGui::Text("Mass");
-                        ImGui::TableNextColumn(); ImGui::Text("%.2f", CastedActor->GetMass());
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn(); ImGui::Text("Shape Type");
 
-                        ImGui::TableNextRow();
-                        ImGui::TableNextColumn(); ImGui::Text("Velocity");
-                        ImGui::TableNextColumn(); ImGui::Text("(%.2f, %.2f)", CastedActor->GetVelocity().x, CastedActor->GetVelocity().y);
-                    }
+				ImGui::TableNextColumn();
+				switch (CastedActor->m_ShapeID) {
+				case ShapeType::BOX:
+					ImGui::Text("Box");
+					break;
+				case ShapeType::CIRCLE:
+					ImGui::Text("Circle");
+					break;
+				default:
+					ImGui::Text("Unknown");
+				}
 
-                    ImGui::EndTable();
-                    if (ImGui::Button("Delete Actor##")) {
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn(); ImGui::Text("Position");
+				ImGui::TableNextColumn(); ImGui::Text("(%.2f, %.2f)", CastedActor->GetPosition().x, CastedActor->GetPosition().y);
 
-                        // Making sure selected actor is not a dangling pointer.
-                        if (SelectedActor == Actor) {
-                            SelectedActor = nullptr;
-                        }
-                        RemoveActor(Actor);
-                    }
-            ImGui::TreePop();
-        }   
-                      ImGui::PopID();
-    }
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn(); ImGui::Text("Orientation");
+				ImGui::TableNextColumn(); ImGui::Text("%.2f", CastedActor->GetOrientation());
+
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn(); ImGui::Text("Mass");
+				ImGui::TableNextColumn(); ImGui::Text("%.2f", CastedActor->GetMass());
+
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn(); ImGui::Text("Velocity");
+				ImGui::TableNextColumn(); ImGui::Text("(%.2f, %.2f)", CastedActor->GetVelocity().x, CastedActor->GetVelocity().y);
+			}
+
+			ImGui::EndTable();
+			if (ImGui::Button("Delete Actor##")) {
+
+				// Making sure selected actor is not a dangling pointer.
+				if (SelectedActor == Actor) {
+					SelectedActor = nullptr;
+				}
+				RemoveActor(Actor);
+			}
+			ImGui::TreePop();
+		}
+		ImGui::PopID();
+	}
 }
 
-void PhysicsScene::SetUpImGUItheme() {
-	ImGuiStyle& style = ImGui::GetStyle();
-	
-	style.Alpha = 1.0f;
-	style.DisabledAlpha = 0.1f;
-	style.WindowPadding = ImVec2(8.0f, 8.0f);
-	style.WindowRounding = 10.0f;
-	style.WindowBorderSize = 0.0f;
-	style.WindowMinSize = ImVec2(30.0f, 30.0f);
-	style.WindowTitleAlign = ImVec2(0.5f, 0.5f);
-	style.WindowMenuButtonPosition = ImGuiDir_Right;
-	style.ChildRounding = 5.0f;
-	style.ChildBorderSize = 1.0f;
-	style.PopupRounding = 10.0f;
-	style.PopupBorderSize = 0.0f;
-	style.FramePadding = ImVec2(5.0f, 3.5f);
-	style.FrameRounding = 5.0f;
-	style.FrameBorderSize = 0.0f;
-	style.ItemSpacing = ImVec2(5.0f, 4.0f);
-	style.ItemInnerSpacing = ImVec2(5.0f, 5.0f);
-	style.CellPadding = ImVec2(4.0f, 2.0f);
-	style.IndentSpacing = 5.0f;
-	style.ColumnsMinSpacing = 5.0f;
-	style.ScrollbarSize = 15.0f;
-	style.ScrollbarRounding = 9.0f;
-	style.GrabMinSize = 15.0f;
-	style.GrabRounding = 5.0f;
-	style.TabRounding = 5.0f;
-	style.TabBorderSize = 0.0f;
-	style.ColorButtonPosition = ImGuiDir_Right;
-	style.ButtonTextAlign = ImVec2(0.5f, 0.5f);
-	style.SelectableTextAlign = ImVec2(0.0f, 0.0f);
-	
-	style.Colors[ImGuiCol_Text] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-	style.Colors[ImGuiCol_TextDisabled] = ImVec4(1.0f, 1.0f, 1.0f, 0.360515f);
-	style.Colors[ImGuiCol_WindowBg] = ImVec4(0.09803922f, 0.09803922f, 0.09803922f, 1.0f);
-	style.Colors[ImGuiCol_ChildBg] = ImVec4(1.0f, 0.0f, 0.0f, 0.0f);
-	style.Colors[ImGuiCol_PopupBg] = ImVec4(0.09803922f, 0.09803922f, 0.09803922f, 1.0f);
-	style.Colors[ImGuiCol_Border] = ImVec4(0.42352942f, 0.38039216f, 0.57254905f, 0.5493562f);
-	style.Colors[ImGuiCol_BorderShadow] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
-	style.Colors[ImGuiCol_FrameBg] = ImVec4(0.15686275f, 0.15686275f, 0.15686275f, 1.0f);
-	style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.38039216f, 0.42352942f, 0.57254905f, 0.54901963f);
-	style.Colors[ImGuiCol_FrameBgActive] = ImVec4(0.61960787f, 0.5764706f, 0.76862746f, 0.54901963f);
-	style.Colors[ImGuiCol_TitleBg] = ImVec4(0.09803922f, 0.09803922f, 0.09803922f, 1.0f);
-	style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.09803922f, 0.09803922f, 0.09803922f, 1.0f);
-	style.Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.25882354f, 0.25882354f, 0.25882354f, 0.0f);
-	style.Colors[ImGuiCol_MenuBarBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
-	style.Colors[ImGuiCol_ScrollbarBg] = ImVec4(0.15686275f, 0.15686275f, 0.15686275f, 0.0f);
-	style.Colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.15686275f, 0.15686275f, 0.15686275f, 1.0f);
-	style.Colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.23529412f, 0.23529412f, 0.23529412f, 1.0f);
-	style.Colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.29411766f, 0.29411766f, 0.29411766f, 1.0f);
-	style.Colors[ImGuiCol_CheckMark] = ImVec4(0.29411766f, 0.29411766f, 0.29411766f, 1.0f);
-	style.Colors[ImGuiCol_SliderGrab] = ImVec4(0.61960787f, 0.5764706f, 0.76862746f, 0.54901963f);
-	style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(0.8156863f, 0.77254903f, 0.9647059f, 0.54901963f);
-	style.Colors[ImGuiCol_Button] = ImVec4(0.61960787f, 0.5764706f, 0.76862746f, 0.54901963f);
-	style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.7372549f, 0.69411767f, 0.8862745f, 0.54901963f);
-	style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.8156863f, 0.77254903f, 0.9647059f, 0.54901963f);
-	style.Colors[ImGuiCol_Header] = ImVec4(0.61960787f, 0.5764706f, 0.76862746f, 0.54901963f);
-	style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.7372549f, 0.69411767f, 0.8862745f, 0.54901963f);
-	style.Colors[ImGuiCol_HeaderActive] = ImVec4(0.8156863f, 0.77254903f, 0.9647059f, 0.54901963f);
-	style.Colors[ImGuiCol_Separator] = ImVec4(0.61960787f, 0.5764706f, 0.76862746f, 0.54901963f);
-	style.Colors[ImGuiCol_SeparatorHovered] = ImVec4(0.7372549f, 0.69411767f, 0.8862745f, 0.54901963f);
-	style.Colors[ImGuiCol_SeparatorActive] = ImVec4(0.8156863f, 0.77254903f, 0.9647059f, 0.54901963f);
-	style.Colors[ImGuiCol_ResizeGrip] = ImVec4(0.61960787f, 0.5764706f, 0.76862746f, 0.54901963f);
-	style.Colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.7372549f, 0.69411767f, 0.8862745f, 0.54901963f);
-	style.Colors[ImGuiCol_ResizeGripActive] = ImVec4(0.8156863f, 0.77254903f, 0.9647059f, 0.54901963f);
-	style.Colors[ImGuiCol_Tab] = ImVec4(0.61960787f, 0.5764706f, 0.76862746f, 0.54901963f);
-	style.Colors[ImGuiCol_TabHovered] = ImVec4(0.7372549f, 0.69411767f, 0.8862745f, 0.54901963f);
-	style.Colors[ImGuiCol_TabActive] = ImVec4(0.8156863f, 0.77254903f, 0.9647059f, 0.54901963f);
-	style.Colors[ImGuiCol_TabUnfocused] = ImVec4(0.0f, 0.4509804f, 1.0f, 0.0f);
-	style.Colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.13333334f, 0.25882354f, 0.42352942f, 0.0f);
-	style.Colors[ImGuiCol_PlotLines] = ImVec4(0.29411766f, 0.29411766f, 0.29411766f, 1.0f);
-	style.Colors[ImGuiCol_PlotLinesHovered] = ImVec4(0.7372549f, 0.69411767f, 0.8862745f, 0.54901963f);
-	style.Colors[ImGuiCol_PlotHistogram] = ImVec4(0.61960787f, 0.5764706f, 0.76862746f, 0.54901963f);
-	style.Colors[ImGuiCol_PlotHistogramHovered] = ImVec4(0.7372549f, 0.69411767f, 0.8862745f, 0.54901963f);
-	style.Colors[ImGuiCol_TableHeaderBg] = ImVec4(0.1882353f, 0.1882353f, 0.2f, 1.0f);
-	style.Colors[ImGuiCol_TableBorderStrong] = ImVec4(0.42352942f, 0.38039216f, 0.57254905f, 0.54901963f);
-	style.Colors[ImGuiCol_TableBorderLight] = ImVec4(0.42352942f, 0.38039216f, 0.57254905f, 0.2918455f);
-	style.Colors[ImGuiCol_TableRowBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
-	style.Colors[ImGuiCol_TableRowBgAlt] = ImVec4(1.0f, 1.0f, 1.0f, 0.03433478f);
-	style.Colors[ImGuiCol_TextSelectedBg] = ImVec4(0.7372549f, 0.69411767f, 0.8862745f, 0.54901963f);
-	style.Colors[ImGuiCol_DragDropTarget] = ImVec4(1.0f, 1.0f, 0.0f, 0.9f);
-	style.Colors[ImGuiCol_NavHighlight] = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
-	style.Colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.0f, 1.0f, 1.0f, 0.7f);
-	style.Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.8f, 0.8f, 0.8f, 0.2f);
-	style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.8f, 0.8f, 0.8f, 0.35f);
+void PhysicsScene::DrawSceneGraph()
+{
+	ImGui::Begin("Scene Graph");
+	if (ImGui::TreeNode("Scene")) {
+		for (const auto actor : m_actors) {
+			DisplayActor(actor);
+		}
+		ImGui::TreePop();
+	}
+	ImGui::End();
+}
+
+void PhysicsScene::DrawDebugOptions()
+{
+	ImGui::Begin("Debug Options");
+	ImGui::Checkbox("Show collision contact points", &m_debugShowContactPoints);
+	if (ImGui::Button("Simulate!")) {
+		m_isPhysicsSimulating ^= 1;
+	}
+	if (ImGui::Button("Load Scene")) {
+		// this should be okay??
+		OpenLoadFileDialogue((void*)this);
+	}
+
+	if (ImGui::Button("Save Scene")) {
+		json savedata = serialiser.Save(m_actors);
+		OpenSaveFileDialogue(savedata);
+	}
+
+	if (ImGui::Button("Clear Scene")) {
+		ClearAllActor();
+		AddActor(new Plane({ 0.0f, 1.0f }, 0.0f));
+		AddActor(new Plane({ -1.0f, 0.0f }, -3.0f));
+		AddActor(new Plane({ 1.0f, 0.0f }, -3.0f));
+	}
+	ImGui::End();
+}
+
+void PhysicsScene::DrawObjectCreator()
+{
+	ImGui::Begin("Object Editor");
+	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(10.0f, 10.0f));
+	if (ImGui::BeginTable("Properties", 2, ImGuiTableFlags_SizingStretchProp)) {
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn(); ImGui::Text("Velocity");
+		ImGui::TableNextColumn(); ImGui::InputFloat2("##1", &creatorInfo.velocity.x);
+
+		ImGui::TableNextColumn(); ImGui::Text("Mass");
+		ImGui::TableNextColumn(); ImGui::InputFloat("##2", &creatorInfo.mass, 0.0f, 0.0f, "%.3f");
+		if (creatorInfo.mass <= 0.0f) creatorInfo.mass = 0.001f;
+
+		ImGui::TableNextColumn(); ImGui::Text("Colour");
+		ImGui::TableNextColumn();
+
+		ImGui::TableNextColumn(); ImGui::Text("Orientation");
+		ImGui::TableNextColumn(); ImGui::InputFloat("##4", &creatorInfo.orientation);
+
+		switch (creatorInfo.shapetype)
+		{
+		case ShapeType::BOX:
+			ImGui::TableNextColumn(); ImGui::Text("Half Width");
+			ImGui::TableNextColumn(); ImGui::InputFloat("##5", &creatorInfo.halfwidth);
+
+			ImGui::TableNextColumn(); ImGui::Text("Half Height");
+			ImGui::TableNextColumn(); ImGui::InputFloat("##6", &creatorInfo.halfheight);
+			break;
+
+		case ShapeType::CIRCLE:
+			break;
+
+		case ShapeType::PLANE:
+			break;
+
+		}
+		ImGui::EndTable();
+	}
+	ImGui::PopStyleVar();
+	ImGui::End();
 }
 
 void SDLCALL PhysicsScene::OnLoadFileSelected(void* userdata, const char* const* filelist, int filter) {
 
-    if (!filelist || !filelist[0]) {
-        std::cout << "No file selected...";
-        return;
-    }
+	if (!filelist || !filelist[0]) {
+		std::cout << "No file selected...";
+		return;
+	}
 
-    const char* path = *filelist;
+	const char* path = *filelist;
 
-    std::cout << "selected file: " << path << '\n';
+	std::cout << "selected file: " << path << '\n';
 
-    std::fstream file(path, std::ios::in | std::ios::binary);
+	std::fstream file(path, std::ios::in | std::ios::binary);
 
-    if (!file.is_open()) {
-        std::cerr << "Failed to open file\n";
-        return;
-    }
+	if (!file.is_open()) {
+		std::cerr << "Failed to open file\n";
+		return;
+	}
 
-    const std::string contents(
-        (std::istreambuf_iterator<char>(file)),
-        std::istreambuf_iterator<char>()
-    );
-    
-    // Have to do this weird shit because this callback is asynchronous. 
-    char* data = new char[contents.length() + 1];
-    memcpy(data, contents.data(), contents.length());
-    data[contents.length()] = '\0';
-    
-    PhysicsScene* ref = (PhysicsScene*)(userdata);
-    ref->serialiser.Load(ref, data);
+	const std::string contents(
+		(std::istreambuf_iterator<char>(file)),
+		std::istreambuf_iterator<char>()
+	);
+
+	// Have to do this weird shit because this callback is asynchronous. 
+	char* data = new char[contents.length() + 1];
+	memcpy(data, contents.data(), contents.length());
+	data[contents.length()] = '\0';
+
+	PhysicsScene* ref = (PhysicsScene*)(userdata);
+	ref->serialiser.Load(ref, data);
 }
 
 void SDLCALL PhysicsScene::SaveFile(void* userdata, const char* const* filelist, int filter) {
 
-    json* data = static_cast<json*>(userdata);
+	json* data = static_cast<json*>(userdata);
 
-    if (!filelist || !filelist[0]) {
-        std::cout << "Cancelled save...";
-    }
-    else {
-        const char* path = *filelist;
-        std::ofstream file(path);
-        const std::string stringified = data->dump(3);
-        file.write(stringified.c_str(), stringified.size());
-    }
+	if (!filelist || !filelist[0]) {
+		std::cout << "Cancelled save...";
+	}
+	else {
+		const char* path = *filelist;
+		std::ofstream file(path);
+		const std::string stringified = data->dump(3);
+		file.write(stringified.c_str(), stringified.size());
+	}
 
-    delete data;
+	delete data;
 }
 
 
 
 void PhysicsScene::OpenLoadFileDialogue(void* reference) {
-    SDL_DialogFileFilter filters[] = {
-        { "JSON", "json" }
-    };
+	SDL_DialogFileFilter filters[] = {
+		{ "JSON", "json" }
+	};
 
-    SDL_ShowOpenFileDialog(
-        OnLoadFileSelected,
-        reference,
-        nullptr,
-        filters,
-        SDL_arraysize(filters),
-        nullptr,
-        false
-    );
+	SDL_ShowOpenFileDialog(
+		OnLoadFileSelected,
+		reference,
+		nullptr,
+		filters,
+		SDL_arraysize(filters),
+		nullptr,
+		false
+	);
 
 }
 
 void PhysicsScene::OpenSaveFileDialogue(json& data) {
 
-    SDL_DialogFileFilter filters[] = {
-            { "JSON", "json" }
-    };
+	SDL_DialogFileFilter filters[] = {
+			{ "JSON", "json" }
+	};
 
-    json* dataptr = new json(data);
+	json* dataptr = new json(data);
 
-    SDL_ShowSaveFileDialog(
-    SaveFile,
-    (void*)dataptr,
-    nullptr,
-    filters,
-    SDL_arraysize(filters),
-    nullptr);
+	SDL_ShowSaveFileDialog(
+		SaveFile,
+		(void*)dataptr,
+		nullptr,
+		filters,
+		SDL_arraysize(filters),
+		nullptr);
+}
+
+void PhysicsScene::DrawObjectCursor()
+{
+	switch (creatorInfo.shapetype) {
+	case ShapeType::BOX:
+
+		break;
+
+	default:
+
+		break;
+
+	}
 }

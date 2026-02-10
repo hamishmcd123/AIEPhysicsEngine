@@ -8,6 +8,27 @@
 class PhysicsObject;
 struct CollisionInfo;
 
+struct ObjectCreatorInfo {
+
+    ShapeType shapetype = ShapeType::BOX;
+    Vec2 velocity = { 0.0f, 0.0f };
+    float mass = 1.0f;
+    float orientation = 0.0f;
+    Colour colour = Colour::RED;
+
+    // Specific to circle 
+    float radius = 0.0f;
+
+    // Specific to box
+    float halfwidth = 0.25f;
+    float halfheight = 0.25f;
+
+    // Specific to plane
+    float distance = 0.0f;
+    Vec2 normal = { 0.0f, 0.0f };
+};
+
+
 class PhysicsScene : public Application
 {
 private:
@@ -31,7 +52,6 @@ public:
 	void RemoveActor(PhysicsObject* actor);
 	void OnLeftClick() override;
 	void SetGravity(const Vec2 gravity) {}
-    void OnRightClick() override;
     void ClearAllActor();
 	typedef CollisionInfo (*CollisionFunction)(PhysicsObject*, PhysicsObject*);
     //index = (A->m_ShapeID * N) + B
@@ -52,8 +72,9 @@ public:
     static CollisionInfo Box2Box(PhysicsObject* A, PhysicsObject* B);
 
     void DisplayActor(PhysicsObject* Actor);
-    void SetUpImGUItheme();
-   
+    void DrawSceneGraph();
+    void DrawDebugOptions();
+    void DrawObjectCreator();
     // NOTE: Only supports linear collisions for now.
     void ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const CollisionInfo& info);
 
@@ -63,5 +84,9 @@ public:
 
     void OpenLoadFileDialogue(void* reference);
     void OpenSaveFileDialogue(json& data);
+
+    void DrawObjectCursor();
+
+    ObjectCreatorInfo creatorInfo;
 
 };
