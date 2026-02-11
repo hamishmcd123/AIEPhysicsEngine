@@ -17,7 +17,7 @@ struct ObjectCreatorInfo {
     Colour colour = Colour::RED;
 
     // Specific to circle 
-    float radius = 0.0f;
+    float radius = 0.25f;
 
     // Specific to box
     float halfwidth = 0.25f;
@@ -86,6 +86,8 @@ public:
     void OpenSaveFileDialogue(json& data);
 
     void DrawObjectCursor();
+
+    void OnKeyPress(Key key) override;
 
     ObjectCreatorInfo creatorInfo;
 

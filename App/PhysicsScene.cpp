@@ -1,6 +1,7 @@
 #include "PhysicsScene.h"
 #include "ApplicationHarness.h"
 #include "Colour.h"
+#include "Key.h"
 #include "RigidBody.h"
 #include "Vec2.h"
 #include <SDL3/SDL_dialog.h>
@@ -10,6 +11,7 @@
 #include "Plane.h"
 #include "Box.h"
 #include "CollisionInfo.h"
+#include <filesystem>
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -39,7 +41,7 @@ void PhysicsScene::Initialise()
 	//available at this point.
 
 	PhysicsObject::lines = lines;
-	m_gravity = { 0, -9.81f };
+	m_gravity = { 0, -3.0f };
 	AddActor(new Plane({ 0.0f, 1.0f }, 0.0f));
 	SetupImGUITheme();
 }
@@ -102,28 +104,38 @@ void PhysicsScene::RemoveActor(PhysicsObject* actor)
 
 void PhysicsScene::OnLeftClick()
 {
+        switch (creatorInfo.shapetype) {
+        case ShapeType::PLANE:
+            AddActor(new Plane(
+                creatorInfo.normal,
+                creatorInfo.distance
+                ));
+            break;
+        case ShapeType::BOX:
+            AddActor(new Box(
+                cursorPos,
+                creatorInfo.velocity,
+                creatorInfo.mass,
+                creatorInfo.halfwidth,
+                creatorInfo.halfheight,
+                creatorInfo.orientation,
+                creatorInfo.colour
+            ));
+            break;
 
-	switch (creatorInfo.shapetype) {
-	case ShapeType::PLANE:
+        case ShapeType::CIRCLE:
+            AddActor(new Circle(
+                cursorPos,
+                creatorInfo.velocity,
+                creatorInfo.mass,
+                creatorInfo.radius,
+                creatorInfo.orientation,
+                creatorInfo.colour
+            ));
 
-		break;
-	case ShapeType::BOX:
-		AddActor(new Box(
-			cursorPos,
-			creatorInfo.velocity,
-			creatorInfo.mass,
-			creatorInfo.halfwidth,
-			creatorInfo.halfheight,
-			creatorInfo.orientation,
-			creatorInfo.colour
-		));
-		break;
+            break;
 
-	case ShapeType::CIRCLE:
-
-		break;
-
-	}
+        }
 }
 
 
@@ -451,7 +463,7 @@ CollisionInfo PhysicsScene::Box2Box(PhysicsObject* A, PhysicsObject* B) {
 
 void PhysicsScene::ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const CollisionInfo& info) {
 
-	float e = 0.7f;
+	float e = 0.3f;
 	Vec2 rA = info.collisionPoint - A->GetPosition();
 	Vec2 rB = info.collisionPoint - B->GetPosition();
 
@@ -598,8 +610,6 @@ void PhysicsScene::DrawDebugOptions()
 	if (ImGui::Button("Clear Scene")) {
 		ClearAllActor();
 		AddActor(new Plane({ 0.0f, 1.0f }, 0.0f));
-		AddActor(new Plane({ -1.0f, 0.0f }, -3.0f));
-		AddActor(new Plane({ 1.0f, 0.0f }, -3.0f));
 	}
 	ImGui::End();
 }
@@ -610,23 +620,26 @@ void PhysicsScene::DrawObjectCreator()
 	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(10.0f, 10.0f));
 	if (ImGui::BeginTable("Properties", 2, ImGuiTableFlags_SizingStretchProp)) {
 
-		ImGui::TableNextRow();
-		ImGui::TableNextColumn(); ImGui::Text("Velocity");
-		ImGui::TableNextColumn(); ImGui::InputFloat2("##1", &creatorInfo.velocity.x);
-
-		ImGui::TableNextColumn(); ImGui::Text("Mass");
-		ImGui::TableNextColumn(); ImGui::InputFloat("##2", &creatorInfo.mass, 0.0f, 0.0f, "%.3f");
-		if (creatorInfo.mass <= 0.0f) creatorInfo.mass = 0.001f; // If the mass is set to 0, the inverse mass with be infinite and the velocity/acceleration witll explode.
-
-		ImGui::TableNextColumn(); ImGui::Text("Colour");
-		ImGui::TableNextColumn();
-
-		ImGui::TableNextColumn(); ImGui::Text("Orientation");
-		ImGui::TableNextColumn(); ImGui::InputFloat("##4", &creatorInfo.orientation);
-
+        ImGui::TableNextRow();
+        ImGui::TableNextColumn(); ImGui::Text("Current Shape:");
 		switch (creatorInfo.shapetype)
 		{
 		case ShapeType::BOX:
+            ImGui::TableNextColumn(); ImGui::Text("BOX");
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn(); ImGui::Text("Velocity");
+            ImGui::TableNextColumn(); ImGui::InputFloat2("##1", &creatorInfo.velocity.x);
+
+            ImGui::TableNextColumn(); ImGui::Text("Mass");
+            ImGui::TableNextColumn(); ImGui::InputFloat("##2", &creatorInfo.mass, 0.0f, 0.0f, "%.3f");
+            if (creatorInfo.mass <= 0.0f) creatorInfo.mass = 0.001f; // If the mass is set to 0, the inverse mass with be infinite and the velocity/acceleration witll explode.
+
+            ImGui::TableNextColumn(); ImGui::Text("Colour");
+            ImGui::TableNextColumn();
+
+            ImGui::TableNextColumn(); ImGui::Text("Orientation");
+            ImGui::TableNextColumn(); ImGui::InputFloat("##4", &creatorInfo.orientation);
+
 			ImGui::TableNextColumn(); ImGui::Text("Half Width");
 			ImGui::TableNextColumn(); ImGui::InputFloat("##5", &creatorInfo.halfwidth);
 
@@ -635,9 +648,38 @@ void PhysicsScene::DrawObjectCreator()
 			break;
 
 		case ShapeType::CIRCLE:
+            ImGui::TableNextColumn(); ImGui::Text("CIRCLE");
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn(); ImGui::Text("Velocity");
+            ImGui::TableNextColumn(); ImGui::InputFloat2("##1", &creatorInfo.velocity.x);
+
+            ImGui::TableNextColumn(); ImGui::Text("Mass");
+            ImGui::TableNextColumn(); ImGui::InputFloat("##2", &creatorInfo.mass, 0.0f, 0.0f, "%.3f");
+            if (creatorInfo.mass <= 0.0f) creatorInfo.mass = 0.001f; // If the mass is set to 0, the inverse mass with be infinite and the velocity/acceleration witll explode.
+
+            ImGui::TableNextColumn(); ImGui::Text("Colour");
+            ImGui::TableNextColumn();
+
+            ImGui::TableNextColumn(); ImGui::Text("Radius");
+            ImGui::TableNextColumn(); ImGui::InputFloat("##4", &creatorInfo.radius);
+	
+            ImGui::TableNextColumn(); ImGui::Text("Orientation");
+            ImGui::TableNextColumn(); ImGui::InputFloat("##5", &creatorInfo.orientation);
 			break;
 
 		case ShapeType::PLANE:
+            ImGui::TableNextColumn(); ImGui::Text("PLANE");
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn(); ImGui::Text("Colour");
+            ImGui::TableNextColumn();
+
+            ImGui::TableNextColumn(); ImGui::Text("Normal");
+            ImGui::TableNextColumn(); ImGui::InputFloat2("##2", &creatorInfo.normal.x);
+  
+            ImGui::TableNextColumn(); ImGui::Text("Distance");
+            ImGui::TableNextColumn(); ImGui::InputFloat("##3", &creatorInfo.distance);
+
+
 			break;
 
 		}
@@ -744,4 +786,22 @@ void PhysicsScene::DrawObjectCursor()
 		break;
 
 	}
+}
+
+void PhysicsScene::OnKeyPress(Key key) {
+    if(!ImGui::GetIO().WantCaptureKeyboard)
+    switch(key) {
+        case(Key::One):
+            creatorInfo.shapetype = ShapeType::BOX;
+            break;
+        case(Key::Two):
+            creatorInfo.shapetype = ShapeType::CIRCLE;
+            break;
+        case(Key::Three):
+            creatorInfo.shapetype = ShapeType::PLANE;
+            break;
+        default:
+            break;
+    }
+
 }

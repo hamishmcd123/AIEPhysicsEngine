@@ -35,7 +35,7 @@ struct AppInfo
 	unsigned int verticalResolution = 720;
 	float lineWidth = 3.0f;
 	Colour backgroundColour = Colour::BLACK;
-	unsigned int fixedFramerate = 60;
+	unsigned int fixedFramerate = 120;
 	CameraControls camera;
 	GridInfo grid;
 };
