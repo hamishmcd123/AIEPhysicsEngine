@@ -1,6 +1,9 @@
 
 add_executable(App)
 
+#target_compile_options(App PRIVATE -fsanitize=leak -fno-omit-frame-pointer -g)
+# target_link_options(App PRIVATE -fsanitize=leak)
+
 target_link_libraries(App PUBLIC Engine)
 
 target_sources(App PUBLIC
@@ -27,7 +30,5 @@ if(WIN32)
 		COMMAND ${CMAKE_COMMAND} -E copy
 		${CMAKE_CURRENT_SOURCE_DIR}/SDL3.dll $<TARGET_FILE_DIR:App>)
 endif()
-
-
 
 

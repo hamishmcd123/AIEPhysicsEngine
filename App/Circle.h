@@ -10,4 +10,8 @@ public:
 	
 protected:
 	float m_radius;
+public:
+    BEGIN_REFLECTION(Circle)
+        REFLECT(m_radius)
+    END_REFLECTION
 };

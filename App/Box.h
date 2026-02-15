@@ -1,5 +1,6 @@
 #pragma once 
 #include "Colour.h"
+#include "Reflection.h"
 #include "RigidBody.h"
 #include "Vec2.h"
 
@@ -17,4 +18,10 @@ private:
     float m_halfHeight;
     Vec2 m_localXAxis;
     Vec2 m_localYAxis;
+
+public:
+    BEGIN_REFLECTION(Box)
+        REFLECT(m_halfHeight)
+        REFLECT(m_halfWidth)
+    END_REFLECTION
 };

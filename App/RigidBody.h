@@ -2,6 +2,7 @@
 
 #include "Colour.h"
 #include "PhysicsObject.h"
+#include "Reflection.h"
 
 class RigidBody : public PhysicsObject {
 public:
@@ -36,4 +37,12 @@ protected:
     float m_invMoment;
 	Vec2 m_forceAccumulated;
     float m_torqueAccumulated;
+
+public:
+    BEGIN_REFLECTION(RigidBody)
+        REFLECT(m_position)
+        REFLECT(m_velocity)
+        REFLECT(m_mass)
+        REFLECT(m_orientation)
+    END_REFLECTION
 };

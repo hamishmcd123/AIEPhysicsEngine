@@ -8,6 +8,8 @@
 class PhysicsObject;
 struct CollisionInfo;
 
+
+// These are the default values for objects being created
 struct ObjectCreatorInfo {
 
     ShapeType shapetype = ShapeType::BOX;
@@ -74,7 +76,7 @@ public:
     void DisplayActor(PhysicsObject* Actor);
     void DrawSceneGraph();
     void DrawDebugOptions();
-    void DrawObjectCreator();
+
     // NOTE: Only supports linear collisions for now.
     void ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const CollisionInfo& info);
 
@@ -84,8 +86,6 @@ public:
 
     void OpenLoadFileDialogue(void* reference);
     void OpenSaveFileDialogue(json& data);
-
-    void DrawObjectCursor();
 
     void OnKeyPress(Key key) override;
 

@@ -1,5 +1,4 @@
 #include "PhysicsScene.h"
-#include "ApplicationHarness.h"
 #include "Colour.h"
 #include "Key.h"
 #include "RigidBody.h"
@@ -11,12 +10,12 @@
 #include "Plane.h"
 #include "Box.h"
 #include "CollisionInfo.h"
-#include <filesystem>
 #include <iostream>
 #include <string>
 #include <fstream>
 #include "imgui.h"
 #include "ImGuiStuff.hpp"
+#include "Reflection.h"
 
 PhysicsScene::PhysicsScene()
 {
@@ -39,10 +38,16 @@ void PhysicsScene::Initialise()
 	//after the window is set up and the rendering context is created, so if
 	//you're doing anything weird with rendering, OpenGL functions will be
 	//available at this point.
+    
+    // For relfection
+    RigidBody::RegisterClass();
+    Circle::RegisterClass();
+    Box::RegisterClass();
 
 	PhysicsObject::lines = lines;
-	m_gravity = { 0, -3.0f };
+	m_gravity = { 0, 0.0f };
 	AddActor(new Plane({ 0.0f, 1.0f }, 0.0f));
+
 	SetupImGUITheme();
 }
 
@@ -53,7 +58,6 @@ void PhysicsScene::Update(float delta)
 
 	DrawSceneGraph();
 	DrawDebugOptions();
-	DrawObjectCreator();
 
 	if (m_isPhysicsSimulating) {
 		for (PhysicsObject* actor : m_actors) {
@@ -105,12 +109,6 @@ void PhysicsScene::RemoveActor(PhysicsObject* actor)
 void PhysicsScene::OnLeftClick()
 {
         switch (creatorInfo.shapetype) {
-        case ShapeType::PLANE:
-            AddActor(new Plane(
-                creatorInfo.normal,
-                creatorInfo.distance
-                ));
-            break;
         case ShapeType::BOX:
             AddActor(new Box(
                 cursorPos,
@@ -132,7 +130,9 @@ void PhysicsScene::OnLeftClick()
                 creatorInfo.orientation,
                 creatorInfo.colour
             ));
+            break;
 
+        default:
             break;
 
         }
@@ -529,47 +529,36 @@ void PhysicsScene::DisplayActor(PhysicsObject* Actor) {
 
 		if (isOpen) {
 			if (ImGui::BeginTable("Properties", 2, ImGuiTableFlags_SizingStretchProp)) {
+                switch(CastedActor->m_ShapeID){
+                    case(ShapeType::CIRCLE):
+                        for (auto& prop : GetType<RigidBody>().properties) {
+                            prop->Draw(CastedActor);
+                        }
+                        for (auto& prop : GetType<Circle>().properties) {
+                                prop->Draw(static_cast<Circle*>(CastedActor));
+                        }
+                        break;
 
-				ImGui::TableNextRow();
-				ImGui::TableNextColumn(); ImGui::Text("Shape Type");
+                    case(ShapeType::BOX):
+                        for (auto& prop : GetType<RigidBody>().properties) {
+                            prop->Draw(CastedActor);
+                        }
+                        for (auto& prop : GetType<Box>().properties) {
+                                prop->Draw(static_cast<Box*>(CastedActor));
+                        }
+                        break;
 
-				ImGui::TableNextColumn();
-				switch (CastedActor->m_ShapeID) {
-				case ShapeType::BOX:
-					ImGui::Text("Box");
-					break;
-				case ShapeType::CIRCLE:
-					ImGui::Text("Circle");
-					break;
-				default:
-					ImGui::Text("Unknown");
-				}
-
-				ImGui::TableNextRow();
-				ImGui::TableNextColumn(); ImGui::Text("Position");
-				ImGui::TableNextColumn(); ImGui::Text("(%.2f, %.2f)", CastedActor->GetPosition().x, CastedActor->GetPosition().y);
-
-				ImGui::TableNextRow();
-				ImGui::TableNextColumn(); ImGui::Text("Orientation");
-				ImGui::TableNextColumn(); ImGui::Text("%.2f", CastedActor->GetOrientation());
-
-				ImGui::TableNextRow();
-				ImGui::TableNextColumn(); ImGui::Text("Mass");
-				ImGui::TableNextColumn(); ImGui::Text("%.2f", CastedActor->GetMass());
-
-				ImGui::TableNextRow();
-				ImGui::TableNextColumn(); ImGui::Text("Velocity");
-				ImGui::TableNextColumn(); ImGui::Text("(%.2f, %.2f)", CastedActor->GetVelocity().x, CastedActor->GetVelocity().y);
+                    default:
+                        break;
+                }
 			}
 
 			ImGui::EndTable();
 			if (ImGui::Button("Delete Actor##")) {
-
 				// This ensures the selected actor is not a dangling pointer.
 				if (SelectedActor == Actor) {
 					SelectedActor = nullptr;
 				}
-
 				RemoveActor(Actor);
 			}
 			ImGui::TreePop();
@@ -611,81 +600,6 @@ void PhysicsScene::DrawDebugOptions()
 		ClearAllActor();
 		AddActor(new Plane({ 0.0f, 1.0f }, 0.0f));
 	}
-	ImGui::End();
-}
-
-void PhysicsScene::DrawObjectCreator()
-{
-	ImGui::Begin("Object Editor");
-	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(10.0f, 10.0f));
-	if (ImGui::BeginTable("Properties", 2, ImGuiTableFlags_SizingStretchProp)) {
-
-        ImGui::TableNextRow();
-        ImGui::TableNextColumn(); ImGui::Text("Current Shape:");
-		switch (creatorInfo.shapetype)
-		{
-		case ShapeType::BOX:
-            ImGui::TableNextColumn(); ImGui::Text("BOX");
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn(); ImGui::Text("Velocity");
-            ImGui::TableNextColumn(); ImGui::InputFloat2("##1", &creatorInfo.velocity.x);
-
-            ImGui::TableNextColumn(); ImGui::Text("Mass");
-            ImGui::TableNextColumn(); ImGui::InputFloat("##2", &creatorInfo.mass, 0.0f, 0.0f, "%.3f");
-            if (creatorInfo.mass <= 0.0f) creatorInfo.mass = 0.001f; // If the mass is set to 0, the inverse mass with be infinite and the velocity/acceleration witll explode.
-
-            ImGui::TableNextColumn(); ImGui::Text("Colour");
-            ImGui::TableNextColumn();
-
-            ImGui::TableNextColumn(); ImGui::Text("Orientation");
-            ImGui::TableNextColumn(); ImGui::InputFloat("##4", &creatorInfo.orientation);
-
-			ImGui::TableNextColumn(); ImGui::Text("Half Width");
-			ImGui::TableNextColumn(); ImGui::InputFloat("##5", &creatorInfo.halfwidth);
-
-			ImGui::TableNextColumn(); ImGui::Text("Half Height");
-			ImGui::TableNextColumn(); ImGui::InputFloat("##6", &creatorInfo.halfheight);
-			break;
-
-		case ShapeType::CIRCLE:
-            ImGui::TableNextColumn(); ImGui::Text("CIRCLE");
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn(); ImGui::Text("Velocity");
-            ImGui::TableNextColumn(); ImGui::InputFloat2("##1", &creatorInfo.velocity.x);
-
-            ImGui::TableNextColumn(); ImGui::Text("Mass");
-            ImGui::TableNextColumn(); ImGui::InputFloat("##2", &creatorInfo.mass, 0.0f, 0.0f, "%.3f");
-            if (creatorInfo.mass <= 0.0f) creatorInfo.mass = 0.001f; // If the mass is set to 0, the inverse mass with be infinite and the velocity/acceleration witll explode.
-
-            ImGui::TableNextColumn(); ImGui::Text("Colour");
-            ImGui::TableNextColumn();
-
-            ImGui::TableNextColumn(); ImGui::Text("Radius");
-            ImGui::TableNextColumn(); ImGui::InputFloat("##4", &creatorInfo.radius);
-	
-            ImGui::TableNextColumn(); ImGui::Text("Orientation");
-            ImGui::TableNextColumn(); ImGui::InputFloat("##5", &creatorInfo.orientation);
-			break;
-
-		case ShapeType::PLANE:
-            ImGui::TableNextColumn(); ImGui::Text("PLANE");
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn(); ImGui::Text("Colour");
-            ImGui::TableNextColumn();
-
-            ImGui::TableNextColumn(); ImGui::Text("Normal");
-            ImGui::TableNextColumn(); ImGui::InputFloat2("##2", &creatorInfo.normal.x);
-  
-            ImGui::TableNextColumn(); ImGui::Text("Distance");
-            ImGui::TableNextColumn(); ImGui::InputFloat("##3", &creatorInfo.distance);
-
-
-			break;
-
-		}
-		ImGui::EndTable();
-	}
-	ImGui::PopStyleVar();
 	ImGui::End();
 }
 
@@ -774,20 +688,6 @@ void PhysicsScene::OpenSaveFileDialogue(json& data) {
 		nullptr);
 }
 
-void PhysicsScene::DrawObjectCursor()
-{
-	switch (creatorInfo.shapetype) {
-	case ShapeType::BOX:
-
-		break;
-
-	default:
-
-		break;
-
-	}
-}
-
 void PhysicsScene::OnKeyPress(Key key) {
     if(!ImGui::GetIO().WantCaptureKeyboard)
     switch(key) {
@@ -796,9 +696,6 @@ void PhysicsScene::OnKeyPress(Key key) {
             break;
         case(Key::Two):
             creatorInfo.shapetype = ShapeType::CIRCLE;
-            break;
-        case(Key::Three):
-            creatorInfo.shapetype = ShapeType::PLANE;
             break;
         default:
             break;

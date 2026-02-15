@@ -13,6 +13,7 @@ LineRenderer::~LineRenderer()
 	{
 		glDeleteBuffers(1, &positionBufferID);
 		glDeleteBuffers(1, &colourBufferID);
+		initialised = false;
 	}
 }
 
