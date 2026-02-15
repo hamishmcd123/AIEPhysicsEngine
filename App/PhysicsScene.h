@@ -42,6 +42,7 @@ private:
     bool m_debugShowContactPoints = false;
     bool m_isPhysicsSimulating = false;
     Serialiser serialiser;
+    float elasticity = 0.3f;
 
 public:
 	PhysicsScene();
@@ -88,7 +89,7 @@ public:
     void OpenSaveFileDialogue(json& data);
 
     void OnKeyPress(Key key) override;
-
+    void DrawObjectCreator();
     ObjectCreatorInfo creatorInfo;
 
 };

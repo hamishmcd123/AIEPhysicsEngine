@@ -9,6 +9,7 @@ public:
     Box(const Vec2 pos, const Vec2 velocity, const float mass, const float halfWidth, const float halfHeight, const float orientation, const Colour colour);
     void Draw() override;
     void UpdateLocalAxes();
+    void RefreshMoment() override;
     [[nodiscard]] float GetHalfWidth() const {return m_halfWidth;}
     [[nodiscard]] float GetHalfHeight() const {return m_halfHeight;}
     [[nodiscard]] Vec2 GetLocalXAxis() const {return m_localXAxis;}

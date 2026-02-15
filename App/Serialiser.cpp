@@ -64,6 +64,30 @@ void Serialiser::Load(PhysicsScene* sceneref, void* data)
 {
     char* dataconv = (char*)(data);
     json jsonconv = json::parse(dataconv);
+    
+
+    // Add every box
+    sceneref->ClearAllActor();
+
+    for (auto& thisBox : jsonconv["Actors"]["Box"]) {
+        sceneref->AddActor(new Box(Vec2{ thisBox["positionx"], thisBox["positiony"] },
+            Vec2{ thisBox["velocityx"], thisBox["velocityy"] },
+            thisBox["mass"],
+            thisBox["halfwidth"],
+            thisBox["halfheight"],
+            thisBox["orientation"],
+            Colour::RED));
+    }
+
+    for (auto& thisCirc : jsonconv["Actors"]["Circle"]) {
+        sceneref->AddActor(new Circle(Vec2{ thisCirc["positionx"], thisCirc["positiony"] }, Vec2{ thisCirc["velocityx"], thisCirc["velocityy"] }, thisCirc["mass"],
+            thisCirc["radius"], thisCirc["orientation"], Colour::RED));
+    }
+
+    for (auto& thisPlane : jsonconv["Actors"]["Planes"]) {
+        sceneref->AddActor(new Plane(Vec2{ thisPlane["normalx"], thisPlane["normaly"] }, thisPlane["origindistance"]));
+    }
+
     delete dataconv;
 }
 

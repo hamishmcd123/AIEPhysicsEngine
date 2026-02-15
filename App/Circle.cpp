@@ -10,3 +10,9 @@ void Circle::Draw()
 {
 	lines->DrawCircle(m_position, m_radius, m_colour);
 }
+
+void Circle::RefreshMoment()
+{
+	m_moment = 0.5f * m_mass * m_radius * m_radius;
+	m_invMoment = 1 / m_moment;
+}

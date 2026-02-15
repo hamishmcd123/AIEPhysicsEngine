@@ -55,6 +55,7 @@ class Property : public IProperty<Class> {
         ImGui::TableNextRow();
         ImGui::TableNextColumn(); ImGui::Text(this->name);
         ImGui::TableNextColumn(); ImGui::InputFloat(ImGUIDHelper(instance).c_str(), &flt);
+        if (flt < 0.01f) flt = 0.01f;
     }
 
     void DrawImpl(const char* string, Class* instance) {

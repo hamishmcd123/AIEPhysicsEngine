@@ -29,4 +29,7 @@ If I *were* going to make this again, here are some thing I would like to add:
 
 - Generic polygon collision using SAT.
 - Collision manifolds with OBB and other primitives.
+- Contact forces.
+- Basic constraints
+- Joints
 

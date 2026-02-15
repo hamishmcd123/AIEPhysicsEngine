@@ -26,6 +26,11 @@ public:
     [[nodiscard]] Colour GetColour() const {return m_colour;}
 	void ApplyImpulse(const Vec2 impulse, const Vec2 contactpoint) override;
 	void ApplyImpulse(const Vec2 impulse) override;
+
+	// Hack fix because changing the mass in the inspector does not update the corresponding inverse mass, moment and inverse moment.
+	void RefreshInverseMass() { m_invMass = 1.0f / m_mass; }
+	virtual void RefreshMoment() = 0;
+
 protected:
     Colour m_colour;
 	Vec2 m_position;

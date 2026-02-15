@@ -45,7 +45,7 @@ void PhysicsScene::Initialise()
     Box::RegisterClass();
 
 	PhysicsObject::lines = lines;
-	m_gravity = { 0, 0.0f };
+	m_gravity = { 0, -9.81f };
 	AddActor(new Plane({ 0.0f, 1.0f }, 0.0f));
 
 	SetupImGUITheme();
@@ -58,6 +58,7 @@ void PhysicsScene::Update(float delta)
 
 	DrawSceneGraph();
 	DrawDebugOptions();
+	DrawObjectCreator();
 
 	if (m_isPhysicsSimulating) {
 		for (PhysicsObject* actor : m_actors) {
@@ -131,7 +132,9 @@ void PhysicsScene::OnLeftClick()
                 creatorInfo.colour
             ));
             break;
-
+		case ShapeType::PLANE:
+			AddActor(new Plane(creatorInfo.normal, creatorInfo.distance));
+			break;
         default:
             break;
 
@@ -463,7 +466,7 @@ CollisionInfo PhysicsScene::Box2Box(PhysicsObject* A, PhysicsObject* B) {
 
 void PhysicsScene::ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const CollisionInfo& info) {
 
-	float e = 0.3f;
+	float e = 0.5f;
 	Vec2 rA = info.collisionPoint - A->GetPosition();
 	Vec2 rB = info.collisionPoint - B->GetPosition();
 
@@ -475,7 +478,7 @@ void PhysicsScene::ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const C
 
 	if (Dot(relativeVelocity, info.collisionNormal) < 0) {
 		if (m_debugShowContactPoints) lines->DrawCircle(info.collisionPoint, 0.05f, Colour::RED);
-		float impulseMagnitude = -(1 + e) * (Dot(relativeVelocity, info.collisionNormal)) /
+		float impulseMagnitude = -(1 + elasticity) * (Dot(relativeVelocity, info.collisionNormal)) /
 			(A->GetInverseMass() + B->GetInverseMass() + (rACrossN * rACrossN) * A->GetInverseMoment() + (rBCrossN * rBCrossN) * B->GetInverseMoment());
 		A->ApplyImpulse(impulseMagnitude * info.collisionNormal, info.collisionPoint);
 		B->ApplyImpulse(-1.0f * impulseMagnitude * info.collisionNormal, info.collisionPoint);
@@ -553,6 +556,10 @@ void PhysicsScene::DisplayActor(PhysicsObject* Actor) {
                 }
 			}
 
+			// Refresh the inverse mass, moment and inverse moment
+			CastedActor->RefreshInverseMass();
+			CastedActor->RefreshMoment();
+
 			ImGui::EndTable();
 			if (ImGui::Button("Delete Actor##")) {
 				// This ensures the selected actor is not a dangling pointer.
@@ -600,6 +607,9 @@ void PhysicsScene::DrawDebugOptions()
 		ClearAllActor();
 		AddActor(new Plane({ 0.0f, 1.0f }, 0.0f));
 	}
+	
+	ImGui::InputFloat2("Gravity", &m_gravity.x, "%.2f");
+	ImGui::InputFloat("Elasticity", &elasticity, 0.0f, 0.0f, " % .2f");
 	ImGui::End();
 }
 
@@ -697,8 +707,82 @@ void PhysicsScene::OnKeyPress(Key key) {
         case(Key::Two):
             creatorInfo.shapetype = ShapeType::CIRCLE;
             break;
+		case (Key::Three):
+			creatorInfo.shapetype = ShapeType::PLANE;
+			break;
         default:
             break;
     }
 
 }
+
+
+void PhysicsScene::DrawObjectCreator()
+{
+	ImGui::Begin("Object Creator");
+	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(10.0f, 10.0f));
+	if (ImGui::BeginTable("Properties", 2, ImGuiTableFlags_SizingStretchProp)) {
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn(); ImGui::Text("Current Shape:");
+		switch (creatorInfo.shapetype)
+		{
+		case ShapeType::BOX:
+			ImGui::TableNextColumn(); ImGui::Text("BOX");
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn(); ImGui::Text("Velocity");
+			ImGui::TableNextColumn(); ImGui::InputFloat2("##1", &creatorInfo.velocity.x);
+
+			ImGui::TableNextColumn(); ImGui::Text("Mass");
+			ImGui::TableNextColumn(); ImGui::InputFloat("##2", &creatorInfo.mass, 0.0f, 0.0f, "%.3f");
+			if (creatorInfo.mass <= 0.0f) creatorInfo.mass = 0.001f; // If the mass is set to 0, the inverse mass with be infinite and the velocity/acceleration witll explode.
+
+			ImGui::TableNextColumn(); ImGui::Text("Orientation");
+			ImGui::TableNextColumn(); ImGui::InputFloat("##4", &creatorInfo.orientation);
+
+			ImGui::TableNextColumn(); ImGui::Text("Half Width");
+			ImGui::TableNextColumn(); ImGui::InputFloat("##5", &creatorInfo.halfwidth);
+
+			ImGui::TableNextColumn(); ImGui::Text("Half Height");
+			ImGui::TableNextColumn(); ImGui::InputFloat("##6", &creatorInfo.halfheight);
+			break;
+
+		case ShapeType::CIRCLE:
+			ImGui::TableNextColumn(); ImGui::Text("CIRCLE");
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn(); ImGui::Text("Velocity");
+			ImGui::TableNextColumn(); ImGui::InputFloat2("##1", &creatorInfo.velocity.x);
+
+			ImGui::TableNextColumn(); ImGui::Text("Mass");
+			ImGui::TableNextColumn(); ImGui::InputFloat("##2", &creatorInfo.mass, 0.0f, 0.0f, "%.3f");
+			if (creatorInfo.mass <= 0.0f) creatorInfo.mass = 0.001f; // If the mass is set to 0, the inverse mass with be infinite and the velocity/acceleration witll explode.
+
+			ImGui::TableNextColumn(); ImGui::Text("Radius");
+			ImGui::TableNextColumn(); ImGui::InputFloat("##4", &creatorInfo.radius);
+
+			ImGui::TableNextColumn(); ImGui::Text("Orientation");
+			ImGui::TableNextColumn(); ImGui::InputFloat("##5", &creatorInfo.orientation);
+			break;
+
+		case ShapeType::PLANE:
+			ImGui::TableNextColumn(); ImGui::Text("PLANE");
+			ImGui::TableNextRow();
+
+			ImGui::TableNextColumn(); ImGui::Text("Normal");
+			ImGui::TableNextColumn(); if (ImGui::InputFloat2("##2", &creatorInfo.normal.x)) {
+				creatorInfo.normal.Normalise();
+			};
+
+			ImGui::TableNextColumn(); ImGui::Text("Distance");
+			ImGui::TableNextColumn(); ImGui::InputFloat("##3", &creatorInfo.distance);
+
+
+			break;
+
+		}
+		ImGui::EndTable();
+	}
+	ImGui::PopStyleVar();
+	ImGui::End();
+}
+

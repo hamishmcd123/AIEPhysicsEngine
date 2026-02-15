@@ -16,6 +16,12 @@ void Box::UpdateLocalAxes() {
     m_localYAxis = Vec2{0.0f, 1.0f}.RotateBy(m_orientation);
 }
 
+void Box::RefreshMoment()
+{ 
+    m_moment = 1.0f / 12.0f * m_mass * (2 * m_halfWidth) + (2 * m_halfHeight);
+    m_invMoment = 1 / m_moment;
+}
+
 void Box::Draw() {
     UpdateLocalAxes();
 
