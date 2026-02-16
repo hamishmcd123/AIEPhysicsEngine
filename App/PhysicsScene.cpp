@@ -588,28 +588,58 @@ void PhysicsScene::DrawSceneGraph()
 
 void PhysicsScene::DrawDebugOptions()
 {
+	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(5.0f, 5.0f));
+
 	ImGui::Begin("Debug Options");
-	ImGui::Checkbox("Show collision contact points", &m_debugShowContactPoints);
-	if (ImGui::Button("Simulate!")) {
-		m_isPhysicsSimulating ^= 1;
-	}
-	if (ImGui::Button("Load Scene")) {
-		// this should be okay??
-		OpenLoadFileDialogue((void*)this);
-	}
+	if (ImGui::BeginTable("Options", 2, ImGuiTableFlags_SizingStretchProp)) {
 
-	if (ImGui::Button("Save Scene")) {
-		json savedata = serialiser.Save(m_actors);
-		OpenSaveFileDialogue(savedata);
-	}
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
 
-	if (ImGui::Button("Clear Scene")) {
-		ClearAllActor();
-		AddActor(new Plane({ 0.0f, 1.0f }, 0.0f));
+		ImGui::Checkbox("Visualise contact points", &m_debugShowContactPoints);
+
+		ImGui::TableNextRow();
+
+		ImGui::TableNextColumn();
+		if (ImGui::Button("Simulate!")) {
+			m_isPhysicsSimulating ^= 1;
+		}
+
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+
+		if (ImGui::Button("Load Scene")) {
+			// this should be okay??
+			OpenLoadFileDialogue((void*)this);
+		}
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+
+
+		if (ImGui::Button("Save Scene")) {
+			json savedata = serialiser.Save(m_actors);
+			OpenSaveFileDialogue(savedata);
+		}
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+
+		if (ImGui::Button("Clear Scene")) {
+			ClearAllActor();
+			AddActor(new Plane({ 0.0f, 1.0f }, 0.0f));
+		}
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn(); ImGui::InputFloat2("Gravity", &m_gravity.x, "%.2f");
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn(); ImGui::InputFloat("Elasticity", &elasticity, 0.0f, 0.0f, " % .2f");
+
+		ImGui::EndTable();
 	}
-	
-	ImGui::InputFloat2("Gravity", &m_gravity.x, "%.2f");
-	ImGui::InputFloat("Elasticity", &elasticity, 0.0f, 0.0f, " % .2f");
+	ImGui::PopStyleVar();
 	ImGui::End();
 }
 
