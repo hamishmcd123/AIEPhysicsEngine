@@ -505,36 +505,6 @@ CollisionInfo PhysicsScene::Box2Box(PhysicsObject* A, PhysicsObject* B) {
 	return info;
 }
 
-
-//void PhysicsScene::ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const CollisionInfo& info) {
-//
-//	float e = 0.5f;
-//	Vec2 rA = info.collisionPoint - A->GetPosition();
-//	Vec2 rB = info.collisionPoint - B->GetPosition();
-//
-//	float rACrossN = PseudoCross(rA, info.collisionNormal);
-//	float rBCrossN = PseudoCross(rB, info.collisionNormal);
-//
-//	Vec2 relativeVelocity = (A->GetVelocity() + PseudoCross(rA, A->GetAngularVelocity()))
-//		- (B->GetVelocity() + PseudoCross(rB, B->GetAngularVelocity()));
-//
-//	if (Dot(relativeVelocity, info.collisionNormal) < 0) {
-//		if (m_debugShowContactPoints) lines->DrawCircle(info.collisionPoint, 0.05f, Colour::RED);
-//		float impulseMagnitude = -(1 + elasticity) * (Dot(relativeVelocity, info.collisionNormal)) /
-//			(A->GetInverseMass() + B->GetInverseMass() + (rACrossN * rACrossN) * A->GetInverseMoment() + (rBCrossN * rBCrossN) * B->GetInverseMoment());
-//		A->ApplyImpulse(impulseMagnitude * info.collisionNormal, info.collisionPoint);
-//		B->ApplyImpulse(-1.0f * impulseMagnitude * info.collisionNormal, info.collisionPoint);
-//	}
-//
-//	const float totalInverseMass = A->GetInverseMass() + B->GetInverseMass();
-//	if (totalInverseMass > 0.0f) {
-//		const Vec2 correction = (info.penetrationDepth / totalInverseMass) * info.collisionNormal;
-//		A->SetPosition(A->GetPosition() + A->GetInverseMass() * correction);
-//		B->SetPosition(B->GetPosition() - B->GetInverseMass() * correction);
-//	}
-//
-//}
-
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 void PhysicsScene::DisplayActor(PhysicsObject* Actor) {
