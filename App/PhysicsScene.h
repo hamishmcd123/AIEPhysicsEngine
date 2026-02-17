@@ -5,9 +5,10 @@
 #include <vector>
 #include "Serialiser.h"
 
+
 class PhysicsObject;
 struct CollisionInfo;
-
+struct ContactConstraint;
 
 // These are the default values for objects being created
 struct ObjectCreatorInfo {
@@ -30,7 +31,6 @@ struct ObjectCreatorInfo {
     Vec2 normal = { 0.0f, 0.0f };
 };
 
-
 class PhysicsScene : public Application
 {
 private:
@@ -44,6 +44,7 @@ private:
     Serialiser serialiser;
     float elasticity = 0.3f;
 
+    std::vector<ContactConstraint> m_contactConstraints;
 public:
 	PhysicsScene();
 	~PhysicsScene();

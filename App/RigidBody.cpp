@@ -12,25 +12,6 @@ RigidBody::RigidBody(const ShapeType shapeID, const Vec2 position, const Vec2 ve
 	m_angularVelocity = 0.0f;
 }
 
-void RigidBody::FixedUpdate(Vec2 gravity, float timeStep)
-{
-	// Apply gravity
-	ApplyForce(gravity * m_mass);
-
-    // Linear
-	const Vec2 acceleration = ResolveForces();
-	m_velocity += acceleration * timeStep;
-	m_velocity *= 0.99f;
-	m_position += m_velocity * timeStep;
-
-    // Rotational
-    const float angularAcceleration = ResolveAngular();
-    m_angularVelocity += angularAcceleration * timeStep;
-	m_angularVelocity *= 0.99f;
-    m_orientation += m_angularVelocity * timeStep;
-
-}
-
 void RigidBody::ApplyForce(const Vec2 force)
 {
 	m_forceAccumulated += force;
@@ -62,6 +43,30 @@ Vec2 RigidBody::ResolveForces()
 void RigidBody::ApplyImpulse(const Vec2 impulse) //This is assumed to be through the centre of mass, so won't impart torque
 {
 	m_velocity += impulse * m_invMass;
+}
+
+void RigidBody::IntegrateForces(Vec2 gravity, float timeStep)
+{
+
+	// Apply gravity
+	ApplyForce(gravity * m_mass);
+
+    // Linear
+	const Vec2 acceleration = ResolveForces();
+	m_velocity += acceleration * timeStep;
+
+    // Rotational
+    const float angularAcceleration = ResolveAngular();
+    m_angularVelocity += angularAcceleration * timeStep;
+	m_angularVelocity *= 0.99f;
+
+
+}
+
+void RigidBody::IntegrateVelocity(float timeStep)
+{
+	m_position += m_velocity * timeStep;
+    m_orientation += m_angularVelocity * timeStep;
 }
 
 void RigidBody::ApplyImpulse(const Vec2 impulse, const Vec2 contactpoint)

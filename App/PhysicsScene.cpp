@@ -16,6 +16,7 @@
 #include "imgui.h"
 #include "ImGuiStuff.hpp"
 #include "Reflection.h"
+#include "ContactConstraint.h"
 
 PhysicsScene::PhysicsScene()
 {
@@ -61,9 +62,7 @@ void PhysicsScene::Update(float delta)
 	DrawObjectCreator();
 
 	if (m_isPhysicsSimulating) {
-		for (PhysicsObject* actor : m_actors) {
-			actor->FixedUpdate(m_gravity, delta);
-		}
+		m_contactConstraints.clear();
 
 		for (int outer = 0; outer < m_actors.size(); outer++) {
 			PhysicsObject* A = m_actors[outer];
@@ -74,11 +73,35 @@ void PhysicsScene::Update(float delta)
 				const int index = static_cast<int>(A->m_ShapeID) * 3 + static_cast<int>(B->m_ShapeID);
 				CollisionInfo info = CollisionFunctions[index](A, B);
 				if (info.isColliding) {
-					ResolveCollisions(A, B, info);
+
+					// Create contact constraints
+					ContactConstraint constraint;
+					constraint.Setup(info, delta);
+					constraint.elasticity = elasticity;
+					m_contactConstraints.push_back(constraint);
 				}
 			}
 		}
-	}
+		
+		for (PhysicsObject* actor : m_actors) {
+			actor->IntegrateForces(m_gravity, delta);
+		}
+
+
+		for (int i = 0; i < 10; i++) {
+			for (auto& constraint : m_contactConstraints) {
+				if (m_debugShowContactPoints) lines->DrawCircle(constraint.collisionPoint, 0.05f, Colour::RED);
+				constraint.SolveVelocity();
+				constraint.SolveFriction();
+			}
+		}
+	
+		for (PhysicsObject* actor : m_actors) {
+			actor->IntegrateVelocity(delta);
+		}
+
+
+}
 
 	// TODO: Move this to rendering()? Only problem is that we would have to do temporal anti-aliasing.
 	for (PhysicsObject* actor : m_actors) {
@@ -173,6 +196,8 @@ CollisionInfo PhysicsScene::Sphere2Plane(PhysicsObject* A, PhysicsObject* B) {
 		info.collisionNormal = (distanceToPlane > 0) ? PlaneB->GetNormal() : -1.0f * PlaneB->GetNormal();
 		info.penetrationDepth = CircleA->GetRadius() - abs(distanceToPlane);
 		info.collisionPoint = CircleA->GetPosition() + CircleA->GetRadius() * info.collisionNormal;
+		info.A = A;
+		info.B = B;
 	}
 	return info;
 
@@ -194,6 +219,8 @@ CollisionInfo PhysicsScene::Plane2Sphere(PhysicsObject* A, PhysicsObject* B) {
 		info.collisionNormal = (distanceToPlane > 0) ? -1.0f * PlaneA->GetNormal() : PlaneA->GetNormal();
 		info.penetrationDepth = CircleB->GetRadius() - abs(distanceToPlane);
 		info.collisionPoint = CircleB->GetPosition() + CircleB->GetRadius() * info.collisionNormal;
+		info.A = A;
+		info.B = B;
 	}
 
 	return info;
@@ -212,6 +239,10 @@ CollisionInfo PhysicsScene::Sphere2Sphere(PhysicsObject* A, PhysicsObject* B) {
 		info.collisionNormal = (CircleA->GetPosition() - CircleB->GetPosition()).Normalise();
 		info.penetrationDepth = (CircleA->GetRadius() + CircleB->GetRadius()) - (CircleA->GetPosition() - CircleB->GetPosition()).GetMagnitude();
 		info.collisionPoint = CircleB->GetPosition() + CircleB->GetRadius() * info.collisionNormal;
+		info.A = A;
+		info.B = B;
+
+
 	}
 
 	return info;
@@ -236,7 +267,8 @@ CollisionInfo PhysicsScene::Box2Plane(PhysicsObject* A, PhysicsObject* B) {
 		info.isColliding = true;
 		info.penetrationDepth = r - abs(distance);
 		info.collisionNormal = distance > 0 ? PlaneB->GetNormal() : -1.0f * PlaneB->GetNormal();
-        
+ 		info.A = A;
+		info.B = B;
 
         // NOTE: Find the corner with the lowest signed distance to the plane and use it as the collision point. 
         // This is not the most sophisticated method, as with edge-to-plane collisions we should ideally get a collision manifold and average the points.
@@ -283,6 +315,8 @@ CollisionInfo PhysicsScene::Plane2Box(PhysicsObject* A, PhysicsObject* B) {
 		info.isColliding = true;
 		info.penetrationDepth = r - abs(distance);
         info.collisionNormal = distance > 0 ? -1.0f * PlaneA->GetNormal() : PlaneA->GetNormal();
+ 		info.A = A;
+		info.B = B;
 
         // NOTE: Find the corner with the lowest signed distance to the plane and use it as the collision point. 
         // This is not the most sophisticated method, as with edge-to-plane collisions we should ideally get a collision manifold and average the points.
@@ -340,6 +374,8 @@ CollisionInfo PhysicsScene::Box2Sphere(PhysicsObject* A, PhysicsObject* B) {
 		const Vec2 collisionNormalLocal = (closest - CirclePos).Normalise();
 		info.collisionNormal = (BoxA->GetLocalXAxis() * collisionNormalLocal.x) + (BoxA->GetLocalYAxis() * collisionNormalLocal.y);
 		info.collisionPoint = (CircleB->GetPosition() + CircleB->GetRadius() * info.collisionNormal);
+ 		info.A = A;
+		info.B = B;
 	}
 	return info;
 }
@@ -371,6 +407,9 @@ CollisionInfo PhysicsScene::Sphere2Box(PhysicsObject* A, PhysicsObject* B) {
 		const Vec2 collisionNormalLocal = (CirclePos - closest).Normalise();
 		info.collisionNormal = (BoxB->GetLocalXAxis() * collisionNormalLocal.x) + (BoxB->GetLocalYAxis() * collisionNormalLocal.y);
 		info.collisionPoint = (CircleA->GetPosition() - CircleA->GetRadius() * info.collisionNormal);
+		info.A = A;
+		info.B = B;
+
 	}
 	return info;
 }
@@ -460,38 +499,41 @@ CollisionInfo PhysicsScene::Box2Box(PhysicsObject* A, PhysicsObject* B) {
 	info.isColliding = true;
 	info.penetrationDepth = minOverlap;
 	info.collisionNormal = bestAxis;
+	info.A = A;
+	info.B = B;
+
 	return info;
 }
 
 
-void PhysicsScene::ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const CollisionInfo& info) {
-
-	float e = 0.5f;
-	Vec2 rA = info.collisionPoint - A->GetPosition();
-	Vec2 rB = info.collisionPoint - B->GetPosition();
-
-	float rACrossN = PseudoCross(rA, info.collisionNormal);
-	float rBCrossN = PseudoCross(rB, info.collisionNormal);
-
-	Vec2 relativeVelocity = (A->GetVelocity() + PseudoCross(rA, A->GetAngularVelocity()))
-		- (B->GetVelocity() + PseudoCross(rB, B->GetAngularVelocity()));
-
-	if (Dot(relativeVelocity, info.collisionNormal) < 0) {
-		if (m_debugShowContactPoints) lines->DrawCircle(info.collisionPoint, 0.05f, Colour::RED);
-		float impulseMagnitude = -(1 + elasticity) * (Dot(relativeVelocity, info.collisionNormal)) /
-			(A->GetInverseMass() + B->GetInverseMass() + (rACrossN * rACrossN) * A->GetInverseMoment() + (rBCrossN * rBCrossN) * B->GetInverseMoment());
-		A->ApplyImpulse(impulseMagnitude * info.collisionNormal, info.collisionPoint);
-		B->ApplyImpulse(-1.0f * impulseMagnitude * info.collisionNormal, info.collisionPoint);
-	}
-
-	const float totalInverseMass = A->GetInverseMass() + B->GetInverseMass();
-	if (totalInverseMass > 0.0f) {
-		const Vec2 correction = (info.penetrationDepth / totalInverseMass) * info.collisionNormal;
-		A->SetPosition(A->GetPosition() + A->GetInverseMass() * correction);
-		B->SetPosition(B->GetPosition() - B->GetInverseMass() * correction);
-	}
-
-}
+//void PhysicsScene::ResolveCollisions(PhysicsObject* A, PhysicsObject* B, const CollisionInfo& info) {
+//
+//	float e = 0.5f;
+//	Vec2 rA = info.collisionPoint - A->GetPosition();
+//	Vec2 rB = info.collisionPoint - B->GetPosition();
+//
+//	float rACrossN = PseudoCross(rA, info.collisionNormal);
+//	float rBCrossN = PseudoCross(rB, info.collisionNormal);
+//
+//	Vec2 relativeVelocity = (A->GetVelocity() + PseudoCross(rA, A->GetAngularVelocity()))
+//		- (B->GetVelocity() + PseudoCross(rB, B->GetAngularVelocity()));
+//
+//	if (Dot(relativeVelocity, info.collisionNormal) < 0) {
+//		if (m_debugShowContactPoints) lines->DrawCircle(info.collisionPoint, 0.05f, Colour::RED);
+//		float impulseMagnitude = -(1 + elasticity) * (Dot(relativeVelocity, info.collisionNormal)) /
+//			(A->GetInverseMass() + B->GetInverseMass() + (rACrossN * rACrossN) * A->GetInverseMoment() + (rBCrossN * rBCrossN) * B->GetInverseMoment());
+//		A->ApplyImpulse(impulseMagnitude * info.collisionNormal, info.collisionPoint);
+//		B->ApplyImpulse(-1.0f * impulseMagnitude * info.collisionNormal, info.collisionPoint);
+//	}
+//
+//	const float totalInverseMass = A->GetInverseMass() + B->GetInverseMass();
+//	if (totalInverseMass > 0.0f) {
+//		const Vec2 correction = (info.penetrationDepth / totalInverseMass) * info.collisionNormal;
+//		A->SetPosition(A->GetPosition() + A->GetInverseMass() * correction);
+//		B->SetPosition(B->GetPosition() - B->GetInverseMass() * correction);
+//	}
+//
+//}
 
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
