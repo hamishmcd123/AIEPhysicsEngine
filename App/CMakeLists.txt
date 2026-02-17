@@ -16,7 +16,8 @@ target_sources(App PUBLIC
     "Box.cpp"
     "Serialiser.cpp"
     "ImGuiStuff.cpp"
-)
+	"ContactConstraint.cpp"
+    )
 
 target_include_directories(App PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

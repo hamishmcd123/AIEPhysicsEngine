@@ -7,7 +7,7 @@
 class RigidBody : public PhysicsObject {
 public:
 	RigidBody(const ShapeType shapeID, const Vec2 position, const Vec2 velocity, const float orientation, const float mass, const Colour colour);
-	void FixedUpdate(Vec2 gravity, float timeStep) override;
+	//void FixedUpdate(Vec2 gravity, float timeStep) override;
 	void ApplyForce(Vec2 force);
     void ApplyForceAtPoint(Vec2 force, Vec2 pos);
 	void ResetPosition() override;
@@ -19,8 +19,9 @@ public:
 	[[nodiscard]] float GetInverseMoment() const override { return m_invMoment; }
 	Vec2 ResolveForces();
     float ResolveAngular();
-    [[nodiscard]] Vec2 GetPosition() const override {return m_position;}
+	[[nodiscard]] Vec2 GetPosition() const override {return m_position;}
     void SetPosition(const Vec2 position) override {m_position = position; }
+    void SetOrientation(const float orientation) override {m_orientation = orientation; }
     void SetColour(const Colour colour) {m_colour = colour;}
 	float m_orientation;
     [[nodiscard]] Colour GetColour() const {return m_colour;}
@@ -30,6 +31,9 @@ public:
 	// Hack fix because changing the mass in the inspector does not update the corresponding inverse mass, moment and inverse moment.
 	void RefreshInverseMass() { m_invMass = 1.0f / m_mass; }
 	virtual void RefreshMoment() = 0;
+
+	void IntegrateForces(Vec2 gravity, float timeStep) override;
+	void IntegrateVelocity(float timeStep) override;
 
 protected:
     Colour m_colour;

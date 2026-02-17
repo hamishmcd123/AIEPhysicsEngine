@@ -12,11 +12,6 @@ Plane::Plane(const Vec2 normal, const float distance) : PhysicsObject(ShapeType:
 	m_normal.Normalise();
 }
 
-void Plane::FixedUpdate(Vec2 gravity, float timeStep)
-{
-
-}
-
 void Plane::Draw()
 {
 	const Vec2 PlaneCenter = m_distanceToOrigin * m_normal;

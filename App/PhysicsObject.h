@@ -16,7 +16,9 @@ public:
     // NOTE: Marked as virtual since we are deleting through this base type.
     virtual ~PhysicsObject() = default;
 
-	virtual void FixedUpdate(Vec2 gravity, float timeStep) = 0;
+	//virtual void FixedUpdate(Vec2 gravity, float timeStep) = 0;
+	virtual void IntegrateForces(Vec2 gravity, float timeStep) = 0;
+	virtual void IntegrateVelocity(float timeStep) = 0;
 	virtual void ResetPosition() = 0;
 	virtual void Draw() = 0;
 	ShapeType m_ShapeID;
@@ -27,7 +29,9 @@ public:
 	virtual void ApplyImpulse(const Vec2 impulse, const Vec2 contactpoint) = 0;
 	virtual void ApplyImpulse(const Vec2 impulse) = 0;
     virtual void SetPosition(const Vec2 position) = 0;
-    virtual Vec2 GetPosition() const = 0;
+    virtual void SetOrientation(const float orientation) = 0;
+	virtual Vec2 GetPosition() const = 0;
+    virtual float GetOrientation() const = 0;
 	virtual float GetAngularVelocity() const = 0;
 	virtual float GetInverseMoment() const = 0;
 	static LineRenderer* lines;
